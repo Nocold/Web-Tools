@@ -33,6 +33,14 @@ window.TOOLS = [
     keywords: ["video", "mp3", "audio", "ffmpeg", "convert", "影片", "音訊", "轉檔"],
   },
   {
+    slug: "countdown-cue",
+    name: "倒數提示音",
+    description: "在音樂指定時間點疊上英文倒數語音(5…1)",
+    icon: "⏱️",
+    category: "影音",
+    keywords: ["countdown", "cue", "倒數", "提示音", "voice", "語音", "音樂", "intro"],
+  },
+  {
     slug: "mp3-splitter",
     name: "MP3 切割",
     description: "擷取 MP3 片段(指定起點與長度)",
