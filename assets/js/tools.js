@@ -33,6 +33,14 @@ window.TOOLS = [
     keywords: ["video", "mp3", "audio", "ffmpeg", "convert", "影片", "音訊", "轉檔"],
   },
   {
+    slug: "mp3-splitter",
+    name: "MP3 切割",
+    description: "擷取 MP3 片段(指定起點與長度)",
+    icon: "✂️",
+    category: "影音",
+    keywords: ["mp3", "cut", "split", "trim", "clip", "切割", "剪輯", "片段", "音訊"],
+  },
+  {
     slug: "timestamp",
     name: "時間戳轉換",
     description: "Unix 時間戳與日期時間互轉",
