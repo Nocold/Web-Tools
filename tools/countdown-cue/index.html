@@ -343,7 +343,7 @@
             await Promise.all(Object.keys(need).map(decodeClip));
 
             setStatus("正在混音…");
-            var gap = 0.2; // silence between the section label and the "5"
+            var gap = 0.5; // silence between the section label and the "5"
             // how much lead time each cue needs before its time point
             function leadOf(cue) {
               return L + (cue.label ? gap + clipCache["part_" + cue.label].duration : 0);
