@@ -86,7 +86,10 @@ a:hover {
   gap: 8px;
 }
 .site-header .brand .logo {
-  font-size: 1.3rem;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: block;
 }
 .site-header nav {
   margin-left: auto;
