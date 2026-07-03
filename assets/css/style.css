@@ -92,10 +92,50 @@ a:hover {
   display: block;
 }
 .site-header nav {
-  margin-left: auto;
   display: flex;
   gap: 18px;
   font-size: 0.92rem;
+}
+.site-header .header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.reload-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.reload-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.reload-btn:active {
+  background: var(--surface-2);
+}
+.reload-btn svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+.reload-btn.spinning svg {
+  animation: reload-spin 0.6s linear infinite;
+}
+@keyframes reload-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Hero */

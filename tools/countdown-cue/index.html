@@ -64,6 +64,14 @@
     <header class="site-header">
       <div class="container">
         <a class="brand" href="../../"><img class="logo" src="../../assets/favicon.svg" alt="" width="26" height="26" /> Web-Tools</a>
+        <div class="header-actions">
+          <button type="button" class="reload-btn" onclick="this.classList.add('spinning');location.reload()" aria-label="重新整理" title="重新整理">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+              <polyline points="21 3 21 9 15 9" />
+            </svg>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -107,8 +115,12 @@
           <label class="check" style="margin-bottom:6px"><input type="checkbox" id="addGo" /> 到達時說「Go」</label>
         </div>
 
-        <div style="margin-top:18px">
+        <div style="margin-top:18px; display:flex; gap:10px; flex-wrap:wrap; align-items:center">
           <button class="btn primary" id="generate" disabled>產生</button>
+          <button class="btn" id="previewBtn" type="button">🔊 試聽語音</button>
+        </div>
+        <div class="hint" style="margin-top:6px">
+          試聽會直接播放「(第一個時間點的區段)… 5 … 4 … 3 … 2 … 1」,不需先選音樂。
         </div>
 
         <div class="progress-wrap" id="progressWrap">
@@ -433,6 +445,65 @@
             setStatus("✗ 失敗:" + (err && err.message ? err.message : err), "error");
           } finally {
             generateBtn.disabled = false;
+          }
+        });
+
+        // ---- Audition (live preview, no music / no MP3 encode) ----
+        var previewBtn = $("previewBtn");
+        var previewSources = [];
+        function stopPreview() {
+          previewSources.forEach(function (s) { try { s.stop(); } catch (_) {} });
+          previewSources = [];
+        }
+        previewBtn.addEventListener("click", async function () {
+          var L = Math.round(Number(countInput.value));
+          if (!(L >= 1 && L <= 10)) { setStatus("✗ 倒數秒數需為 1–10", "error"); return; }
+          var voiceVol = Math.max(0, Number(voiceVolInput.value) / 100);
+          var firstSel = cueList.querySelector(".cue-label");
+          var label = firstSel ? (firstSel.value || "") : "";
+
+          previewBtn.disabled = true;
+          try {
+            var need = {};
+            for (var k = 1; k <= L; k++) need[NUM[k]] = 1;
+            if (addGoChk.checked) need["go"] = 1;
+            if (label) need["part_" + label] = 1;
+            setStatus("正在載入語音…");
+            await Promise.all(Object.keys(need).map(decodeClip));
+
+            stopPreview();
+            var ctx = getCtx();
+            if (ctx.state === "suspended") await ctx.resume();
+            var vg = ctx.createGain();
+            vg.gain.value = voiceVol;
+            vg.connect(ctx.destination);
+
+            var gap = 0.5;
+            var t0 = ctx.currentTime + 0.06;
+            var numbersStart = t0;
+            if (label) {
+              var lb = clipCache["part_" + label];
+              var ls = ctx.createBufferSource();
+              ls.buffer = lb; ls.connect(vg); ls.start(t0);
+              previewSources.push(ls);
+              numbersStart = t0 + lb.duration + gap;
+            }
+            for (var j = 0; j < L; j++) {
+              var s = ctx.createBufferSource();
+              s.buffer = clipCache[NUM[L - j]]; // L, L-1, …, 1
+              s.connect(vg); s.start(numbersStart + j);
+              previewSources.push(s);
+            }
+            if (addGoChk.checked) {
+              var g = ctx.createBufferSource();
+              g.buffer = clipCache["go"]; g.connect(vg); g.start(numbersStart + L);
+              previewSources.push(g);
+            }
+            setStatus("▶ 試聽中…" + (label ? "(Part " + label.toUpperCase() + ")" : ""), "ok");
+          } catch (err) {
+            setStatus("✗ 試聽失敗:" + (err && err.message ? err.message : err), "error");
+          } finally {
+            previewBtn.disabled = false;
           }
         });
       })();

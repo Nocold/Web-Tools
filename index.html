@@ -9,14 +9,23 @@
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
     <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Web-Tools" />
   </head>
   <body>
     <header class="site-header">
       <div class="container">
         <span class="brand"><img class="logo" src="assets/favicon.svg" alt="" width="26" height="26" /> Web-Tools</span>
-        <nav>
-          <a href="https://github.com/Nocold/Web-Tools" target="_blank" rel="noopener">GitHub</a>
-        </nav>
+        <div class="header-actions">
+          <button type="button" class="reload-btn" onclick="this.classList.add('spinning');location.reload()" aria-label="重新整理" title="重新整理">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+              <polyline points="21 3 21 9 15 9" />
+            </svg>
+          </button>
+          <nav>
+            <a href="https://github.com/Nocold/Web-Tools" target="_blank" rel="noopener">GitHub</a>
+          </nav>
+        </div>
       </div>
     </header>
 
