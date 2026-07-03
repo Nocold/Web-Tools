@@ -191,13 +191,16 @@
           if (value != null) inp.value = value;
           var sel = document.createElement("select");
           sel.className = "cue-label";
-          [["", "區段:無"], ["a", "Part A"], ["b", "Part B"], ["c", "Part C"],
-           ["d", "Part D"], ["e", "Part E"], ["f", "Part F"], ["g", "Part G"], ["h", "Part H"]]
-            .forEach(function (o) {
-              var op = document.createElement("option");
-              op.value = o[0]; op.textContent = o[1];
-              sel.appendChild(op);
-            });
+          var op0 = document.createElement("option");
+          op0.value = ""; op0.textContent = "區段:無";
+          sel.appendChild(op0);
+          for (var li = 0; li < 26; li++) {
+            var letter = String.fromCharCode(65 + li); // A..Z
+            var op = document.createElement("option");
+            op.value = letter.toLowerCase();
+            op.textContent = "Part " + letter;
+            sel.appendChild(op);
+          }
           var rm = document.createElement("button");
           rm.type = "button"; rm.className = "rm"; rm.textContent = "✕"; rm.title = "移除";
           rm.addEventListener("click", function () {
