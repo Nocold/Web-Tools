@@ -157,6 +157,7 @@
           player = $("player"), downloadLink = $("download");
 
         var CLIP_BASE = "../../assets/audio/countdown/en/";
+        var CLIP_VER = "250"; // bump when the voice clips change, to bust browser cache
         var NUM = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
         var RATE = 44100;
 
@@ -264,7 +265,7 @@
         }
         async function decodeClip(word) {
           if (clipCache[word]) return clipCache[word];
-          var ab = await (await fetch(CLIP_BASE + word + ".wav")).arrayBuffer();
+          var ab = await (await fetch(CLIP_BASE + word + ".wav?v=" + CLIP_VER)).arrayBuffer();
           var buf = await getCtx().decodeAudioData(ab);
           clipCache[word] = buf;
           return buf;
