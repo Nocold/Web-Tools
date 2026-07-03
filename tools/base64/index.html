@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Base64 編解碼 · Web-Tools</title>
+    <link rel="stylesheet" href="../../assets/css/style.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔡</text></svg>"
+    />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="../../"><span class="logo">🧰</span> Web-Tools</a>
+      </div>
+    </header>
+
+    <main class="container tool-page">
+      <a class="back" href="../../">← 返回工具列表</a>
+      <h1>🔡 Base64 編解碼</h1>
+      <p class="subtitle">文字與 Base64 互轉，完整支援 UTF-8(中文、Emoji 皆可)。</p>
+
+      <div class="panel">
+        <div class="two-col">
+          <div>
+            <label class="field-label" for="text">文字</label>
+            <textarea id="text" placeholder="要編碼的文字…" spellcheck="false"></textarea>
+          </div>
+          <div>
+            <label class="field-label" for="b64">Base64</label>
+            <textarea id="b64" placeholder="要解碼的 Base64…" spellcheck="false"></textarea>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <button class="btn primary" id="encode">文字 → Base64 ↓</button>
+          <button class="btn primary" id="decode">Base64 → 文字 ↑</button>
+          <button class="btn" id="clear">清空</button>
+        </div>
+
+        <div class="status" id="status"></div>
+      </div>
+    </main>
+
+    <script>
+      (function () {
+      var $ = function (id) {
+        return document.getElementById(id);
+      };
+      var text = $("text"),
+        b64 = $("b64"),
+        status = $("status");
+
+      function setStatus(msg, kind) {
+        status.textContent = msg || "";
+        status.className = "status" + (kind ? " " + kind : "");
+      }
+
+      // UTF-8 safe encode/decode
+      function encode(str) {
+        return btoa(
+          encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function (_, p1) {
+            return String.fromCharCode(parseInt(p1, 16));
+          })
+        );
+      }
+      function decode(str) {
+        return decodeURIComponent(
+          Array.prototype.map
+            .call(atob(str), function (c) {
+              return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
+            })
+            .join("")
+        );
+      }
+
+      $("encode").addEventListener("click", function () {
+        if (!text.value) {
+          setStatus("請先輸入文字");
+          return;
+        }
+        try {
+          b64.value = encode(text.value);
+          setStatus("✓ 已編碼", "ok");
+        } catch (e) {
+          setStatus("✗ 編碼失敗:" + e.message, "error");
+        }
+      });
+
+      $("decode").addEventListener("click", function () {
+        if (!b64.value.trim()) {
+          setStatus("請先輸入 Base64");
+          return;
+        }
+        try {
+          text.value = decode(b64.value.trim());
+          setStatus("✓ 已解碼", "ok");
+        } catch (e) {
+          setStatus("✗ 無效的 Base64", "error");
+        }
+      });
+
+      $("clear").addEventListener("click", function () {
+        text.value = "";
+        b64.value = "";
+        setStatus("");
+        text.focus();
+      });
+      })();
+    </script>
+  </body>
+</html>

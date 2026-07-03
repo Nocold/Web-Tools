@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JSON 格式化 · Web-Tools</title>
+    <link rel="stylesheet" href="../../assets/css/style.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧾</text></svg>"
+    />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="../../"><span class="logo">🧰</span> Web-Tools</a>
+      </div>
+    </header>
+
+    <main class="container tool-page">
+      <a class="back" href="../../">← 返回工具列表</a>
+      <h1>🧾 JSON 格式化</h1>
+      <p class="subtitle">格式化、壓縮與驗證 JSON。所有處理都在瀏覽器內完成。</p>
+
+      <div class="panel">
+        <label class="field-label" for="input">輸入</label>
+        <textarea id="input" placeholder='{"hello":"world"}' spellcheck="false"></textarea>
+
+        <div class="toolbar">
+          <button class="btn primary" id="format">格式化</button>
+          <button class="btn" id="minify">壓縮</button>
+          <button class="btn" id="copy">複製結果</button>
+          <button class="btn" id="clear">清空</button>
+          <label class="field-label" style="margin: 0 0 0 8px; display: inline-flex; align-items: center; gap: 6px;">
+            縮排
+            <select id="indent" style="width: auto; padding: 6px 8px;">
+              <option value="2">2 空格</option>
+              <option value="4">4 空格</option>
+              <option value="tab">Tab</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="status" id="status"></div>
+
+        <label class="field-label" for="output" style="margin-top: 12px;">結果</label>
+        <textarea id="output" readonly spellcheck="false"></textarea>
+      </div>
+    </main>
+
+    <script>
+      (function () {
+      var $ = function (id) {
+        return document.getElementById(id);
+      };
+      var input = $("input"),
+        output = $("output"),
+        status = $("status");
+
+      function setStatus(msg, kind) {
+        status.textContent = msg || "";
+        status.className = "status" + (kind ? " " + kind : "");
+      }
+
+      function getIndent() {
+        var v = $("indent").value;
+        return v === "tab" ? "\t" : parseInt(v, 10);
+      }
+
+      function process(pretty) {
+        var raw = input.value.trim();
+        if (!raw) {
+          output.value = "";
+          setStatus("請先輸入 JSON");
+          return;
+        }
+        try {
+          var obj = JSON.parse(raw);
+          output.value = JSON.stringify(obj, null, pretty ? getIndent() : 0);
+          setStatus("✓ 有效的 JSON", "ok");
+        } catch (e) {
+          output.value = "";
+          setStatus("✗ " + e.message, "error");
+        }
+      }
+
+      $("format").addEventListener("click", function () {
+        process(true);
+      });
+      $("minify").addEventListener("click", function () {
+        process(false);
+      });
+      $("clear").addEventListener("click", function () {
+        input.value = "";
+        output.value = "";
+        setStatus("");
+        input.focus();
+      });
+      $("copy").addEventListener("click", function () {
+        if (!output.value) return;
+        navigator.clipboard.writeText(output.value).then(function () {
+          setStatus("已複製到剪貼簿", "ok");
+        });
+      });
+      })();
+    </script>
+  </body>
+</html>

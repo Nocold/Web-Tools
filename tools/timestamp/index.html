@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>時間戳轉換 · Web-Tools</title>
+    <link rel="stylesheet" href="../../assets/css/style.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕒</text></svg>"
+    />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="../../"><span class="logo">🧰</span> Web-Tools</a>
+      </div>
+    </header>
+
+    <main class="container tool-page">
+      <a class="back" href="../../">← 返回工具列表</a>
+      <h1>🕒 時間戳轉換</h1>
+      <p class="subtitle">Unix 時間戳與人類可讀日期時間互轉。</p>
+
+      <div class="panel">
+        <div class="toolbar" style="margin-top: 0;">
+          <button class="btn primary" id="now">帶入現在時間</button>
+          <span class="status" id="live" style="margin-left: auto;"></span>
+        </div>
+
+        <div class="two-col" style="margin-top: 8px;">
+          <div>
+            <label class="field-label" for="ts">Unix 時間戳</label>
+            <input class="text-input" id="ts" placeholder="1700000000" />
+            <label class="field-label" style="margin-top: 8px; display: inline-flex; align-items: center; gap: 6px;">
+              單位
+              <select id="unit" style="width: auto; padding: 6px 8px;">
+                <option value="s">秒 (s)</option>
+                <option value="ms">毫秒 (ms)</option>
+              </select>
+            </label>
+            <div style="margin-top: 10px;">
+              <button class="btn" id="ts2date">→ 轉為日期</button>
+            </div>
+          </div>
+          <div>
+            <label class="field-label" for="date">日期時間(本地)</label>
+            <input class="text-input" id="date" type="datetime-local" step="1" />
+            <div style="margin-top: 10px;">
+              <button class="btn" id="date2ts">→ 轉為時間戳</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="status" id="status" style="margin-top: 16px;"></div>
+
+        <div id="result" style="margin-top: 12px; font-family: var(--mono); font-size: 0.9rem; color: var(--text-muted);"></div>
+      </div>
+    </main>
+
+    <script>
+      (function () {
+      var $ = function (id) {
+        return document.getElementById(id);
+      };
+      var status = $("status"),
+        result = $("result");
+
+      function setStatus(msg, kind) {
+        status.textContent = msg || "";
+        status.className = "status" + (kind ? " " + kind : "");
+      }
+
+      function pad(n) {
+        return (n < 10 ? "0" : "") + n;
+      }
+
+      // Format a Date as a datetime-local string (local time).
+      function toLocalInput(d) {
+        return (
+          d.getFullYear() +
+          "-" +
+          pad(d.getMonth() + 1) +
+          "-" +
+          pad(d.getDate()) +
+          "T" +
+          pad(d.getHours()) +
+          ":" +
+          pad(d.getMinutes()) +
+          ":" +
+          pad(d.getSeconds())
+        );
+      }
+
+      function showBreakdown(d) {
+        result.innerHTML =
+          "本地時間:" + d.toString() + "<br />" + "UTC / ISO:" + d.toISOString();
+      }
+
+      $("ts2date").addEventListener("click", function () {
+        var raw = $("ts").value.trim();
+        if (!raw || isNaN(Number(raw))) {
+          setStatus("請輸入有效的數字時間戳", "error");
+          return;
+        }
+        var n = Number(raw);
+        var ms = $("unit").value === "ms" ? n : n * 1000;
+        var d = new Date(ms);
+        if (isNaN(d.getTime())) {
+          setStatus("超出可表示的範圍", "error");
+          return;
+        }
+        $("date").value = toLocalInput(d);
+        setStatus("✓ 已轉換", "ok");
+        showBreakdown(d);
+      });
+
+      $("date2ts").addEventListener("click", function () {
+        var raw = $("date").value;
+        if (!raw) {
+          setStatus("請先選擇日期時間", "error");
+          return;
+        }
+        var d = new Date(raw);
+        if (isNaN(d.getTime())) {
+          setStatus("無效的日期", "error");
+          return;
+        }
+        var secs = Math.floor(d.getTime() / 1000);
+        $("ts").value = $("unit").value === "ms" ? d.getTime() : secs;
+        setStatus("✓ 已轉換", "ok");
+        showBreakdown(d);
+      });
+
+      $("now").addEventListener("click", function () {
+        var d = new Date();
+        $("ts").value = $("unit").value === "ms" ? d.getTime() : Math.floor(d.getTime() / 1000);
+        $("date").value = toLocalInput(d);
+        setStatus("✓ 已帶入現在時間", "ok");
+        showBreakdown(d);
+      });
+
+      // Live clock
+      function tick() {
+        var d = new Date();
+        $("live").textContent = "現在:" + Math.floor(d.getTime() / 1000);
+      }
+      tick();
+      setInterval(tick, 1000);
+      })();
+    </script>
+  </body>
+</html>

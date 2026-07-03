@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>影片轉 MP3 · Web-Tools</title>
+    <link rel="stylesheet" href="../../assets/css/style.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>"
+    />
+    <style>
+      .dropzone {
+        border: 2px dashed var(--border);
+        border-radius: var(--radius);
+        padding: 36px 20px;
+        text-align: center;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: border-color 0.15s, background 0.15s;
+        background: var(--surface-2);
+      }
+      .dropzone.dragover,
+      .dropzone:hover {
+        border-color: var(--accent);
+        color: var(--text);
+      }
+      .dropzone .big {
+        font-size: 2rem;
+        display: block;
+        margin-bottom: 8px;
+      }
+      .file-info {
+        margin-top: 14px;
+        font-family: var(--mono);
+        font-size: 0.88rem;
+        color: var(--text);
+      }
+      .options-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        align-items: flex-end;
+        margin-top: 18px;
+      }
+      .opt {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .opt select {
+        width: auto;
+        min-width: 140px;
+      }
+      .progress-wrap {
+        margin-top: 18px;
+        display: none;
+      }
+      .progress-wrap.show {
+        display: block;
+      }
+      .progress-track {
+        height: 10px;
+        border-radius: 999px;
+        background: var(--surface-2);
+        overflow: hidden;
+        border: 1px solid var(--border);
+      }
+      .progress-bar {
+        height: 100%;
+        width: 0%;
+        background: var(--accent);
+        transition: width 0.2s ease;
+      }
+      .progress-bar.indeterminate {
+        width: 40% !important;
+        animation: slide 1.1s infinite ease-in-out;
+      }
+      @keyframes slide {
+        0% { margin-left: -40%; }
+        100% { margin-left: 100%; }
+      }
+      .log {
+        margin-top: 12px;
+        font-family: var(--mono);
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        white-space: pre-wrap;
+        max-height: 120px;
+        overflow: auto;
+      }
+      .result {
+        margin-top: 20px;
+        display: none;
+      }
+      .result.show {
+        display: block;
+      }
+      .result audio {
+        width: 100%;
+        margin-bottom: 12px;
+      }
+      .note {
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        margin-top: 18px;
+        line-height: 1.6;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="../../"><span class="logo">🧰</span> Web-Tools</a>
+      </div>
+    </header>
+
+    <main class="container tool-page">
+      <a class="back" href="../../">← 返回工具列表</a>
+      <h1>🎵 影片轉 MP3</h1>
+      <p class="subtitle">
+        擷取影片的音軌並轉成 MP3。轉檔完全在你的瀏覽器內進行(採用 FFmpeg WebAssembly),
+        影片不會上傳到任何伺服器。
+      </p>
+
+      <div class="panel">
+        <div class="dropzone" id="dropzone">
+          <span class="big">🎬</span>
+          <strong>點擊選擇影片</strong> 或拖曳到此處
+          <div style="margin-top: 6px; font-size: 0.82rem;">
+            支援 mp4 / mov / mkv / webm / avi 等常見格式
+          </div>
+          <input type="file" id="file" accept="video/*,audio/*" hidden />
+        </div>
+        <div class="file-info" id="fileInfo"></div>
+
+        <div class="options-row">
+          <div class="opt">
+            <label class="field-label" for="bitrate">音質(位元率)</label>
+            <select id="bitrate">
+              <option value="128">128 kbps(標準)</option>
+              <option value="192" selected>192 kbps(推薦)</option>
+              <option value="256">256 kbps(高)</option>
+              <option value="320">320 kbps(最高)</option>
+            </select>
+          </div>
+          <button class="btn primary" id="convert" disabled>轉換為 MP3</button>
+        </div>
+
+        <div class="progress-wrap" id="progressWrap">
+          <div class="progress-track">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+          <div class="status" id="status" style="margin-top: 8px;"></div>
+          <pre class="log" id="log"></pre>
+        </div>
+
+        <div class="result" id="result">
+          <label class="field-label">結果</label>
+          <audio id="player" controls></audio>
+          <a class="btn primary" id="download" download>⬇ 下載 MP3</a>
+        </div>
+
+        <p class="note">
+          ⚠️ 首次轉換時需下載 FFmpeg 核心(約 30MB),會花一點時間,之後會由瀏覽器快取。
+          轉檔速度取決於影片長度與你的裝置效能;較長的影片請耐心等候。
+        </p>
+      </div>
+    </main>
+
+    <!--
+      FFmpeg wrapper (UMD) — served locally so its Web Worker (814.ffmpeg.js)
+      is same-origin. A blob/CDN worker URL breaks webpack's chunk resolution
+      ("Cannot find module blob:…"), so the small wrapper files are vendored.
+      The heavy core (~30MB) is still fetched from the CDN on demand.
+    -->
+    <script src="../../assets/vendor/ffmpeg/ffmpeg.js"></script>
+    <script>
+      (function () {
+        // Minimal replacement for @ffmpeg/util.fetchFile (its UMD build doesn't
+        // expose a usable global via a plain <script> tag). This is all we need —
+        // the worker loads the core via importScripts(), which accepts a
+        // cross-origin CDN URL directly (a blob: URL makes importScripts throw).
+        async function fetchFile(file) {
+          return new Uint8Array(await file.arrayBuffer());
+        }
+
+        var $ = function (id) {
+          return document.getElementById(id);
+        };
+        var dropzone = $("dropzone"),
+          fileInput = $("file"),
+          fileInfo = $("fileInfo"),
+          convertBtn = $("convert"),
+          bitrateSel = $("bitrate"),
+          progressWrap = $("progressWrap"),
+          progressBar = $("progressBar"),
+          statusEl = $("status"),
+          logEl = $("log"),
+          resultEl = $("result"),
+          player = $("player"),
+          downloadLink = $("download");
+
+        var selectedFile = null;
+        var ffmpeg = null; // lazily created FFmpeg instance
+        var lastUrl = null; // object URL to revoke between runs
+
+        function setStatus(msg, kind) {
+          statusEl.textContent = msg || "";
+          statusEl.className = "status" + (kind ? " " + kind : "");
+        }
+
+        function humanSize(bytes) {
+          if (bytes < 1024) return bytes + " B";
+          var units = ["KB", "MB", "GB"];
+          var i = -1;
+          do {
+            bytes /= 1024;
+            i++;
+          } while (bytes >= 1024 && i < units.length - 1);
+          return bytes.toFixed(1) + " " + units[i];
+        }
+
+        function pickFile(file) {
+          if (!file) return;
+          selectedFile = file;
+          fileInfo.textContent = "已選擇:" + file.name + "  (" + humanSize(file.size) + ")";
+          convertBtn.disabled = false;
+          resultEl.classList.remove("show");
+        }
+
+        // ---- Drag & drop / file picker ----
+        dropzone.addEventListener("click", function () {
+          fileInput.click();
+        });
+        fileInput.addEventListener("change", function () {
+          if (fileInput.files && fileInput.files[0]) pickFile(fileInput.files[0]);
+        });
+        ["dragenter", "dragover"].forEach(function (ev) {
+          dropzone.addEventListener(ev, function (e) {
+            e.preventDefault();
+            dropzone.classList.add("dragover");
+          });
+        });
+        ["dragleave", "drop"].forEach(function (ev) {
+          dropzone.addEventListener(ev, function (e) {
+            e.preventDefault();
+            dropzone.classList.remove("dragover");
+          });
+        });
+        dropzone.addEventListener("drop", function (e) {
+          if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            pickFile(e.dataTransfer.files[0]);
+          }
+        });
+
+        // ---- Load FFmpeg on demand ----
+        async function loadFFmpeg() {
+          if (ffmpeg) return ffmpeg;
+          if (typeof FFmpegWASM === "undefined" || !FFmpegWASM.FFmpeg) {
+            throw new Error("FFmpeg 程式庫載入失敗,請檢查網路連線後重試。");
+          }
+          var instance = new FFmpegWASM.FFmpeg();
+
+          instance.on("log", function (e) {
+            logEl.textContent = (logEl.textContent + "\n" + e.message).slice(-4000);
+            logEl.scrollTop = logEl.scrollHeight;
+          });
+          instance.on("progress", function (e) {
+            var p = Math.max(0, Math.min(1, e.progress || 0));
+            progressBar.classList.remove("indeterminate");
+            progressBar.style.width = (p * 100).toFixed(1) + "%";
+          });
+
+          setStatus("正在下載 FFmpeg 核心(首次約 30MB)…");
+          progressBar.classList.add("indeterminate");
+
+          var coreBase = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd";
+          // NOTE: do NOT pass classWorkerURL. When it is set the wrapper spawns a
+          // *module* worker, which cannot importScripts() the core. Omitting it
+          // makes the wrapper load its sibling 814.ffmpeg.js as a *classic*
+          // worker (from the same dir as ffmpeg.js, i.e. our local vendor dir),
+          // and a classic worker CAN importScripts() the cross-origin CDN core.
+          await instance.load({
+            coreURL: coreBase + "/ffmpeg-core.js",
+            wasmURL: coreBase + "/ffmpeg-core.wasm",
+          });
+          ffmpeg = instance;
+          return ffmpeg;
+        }
+
+        // ---- Convert ----
+        convertBtn.addEventListener("click", async function () {
+          if (!selectedFile) return;
+          convertBtn.disabled = true;
+          resultEl.classList.remove("show");
+          progressWrap.classList.add("show");
+          logEl.textContent = "";
+          progressBar.style.width = "0%";
+
+          try {
+            var ff = await loadFFmpeg();
+
+            setStatus("正在讀取影片…");
+            progressBar.classList.add("indeterminate");
+            var inName = "input_" + sanitize(selectedFile.name);
+            await ff.writeFile(inName, await fetchFile(selectedFile));
+
+            setStatus("正在轉換為 MP3…");
+            var outName = "output.mp3";
+            await ff.exec([
+              "-i", inName,
+              "-vn", // 丟棄影像
+              "-c:a", "libmp3lame",
+              "-b:a", bitrateSel.value + "k",
+              outName,
+            ]);
+
+            var data = await ff.readFile(outName);
+            // 清理暫存,釋放記憶體
+            try { await ff.deleteFile(inName); } catch (_) {}
+            try { await ff.deleteFile(outName); } catch (_) {}
+
+            var blob = new Blob([data.buffer], { type: "audio/mpeg" });
+            if (lastUrl) URL.revokeObjectURL(lastUrl);
+            lastUrl = URL.createObjectURL(blob);
+
+            var base = selectedFile.name.replace(/\.[^.]+$/, "") || "audio";
+            player.src = lastUrl;
+            downloadLink.href = lastUrl;
+            downloadLink.download = base + ".mp3";
+
+            progressBar.classList.remove("indeterminate");
+            progressBar.style.width = "100%";
+            setStatus("✓ 轉換完成(" + humanSize(blob.size) + ")", "ok");
+            resultEl.classList.add("show");
+          } catch (err) {
+            progressBar.classList.remove("indeterminate");
+            setStatus("✗ 轉換失敗:" + (err && err.message ? err.message : err), "error");
+          } finally {
+            convertBtn.disabled = false;
+          }
+        });
+
+        // FFmpeg 的虛擬檔名避免特殊字元
+        function sanitize(name) {
+          return name.replace(/[^\w.\-]/g, "_");
+        }
+      })();
+    </script>
+  </body>
+</html>
