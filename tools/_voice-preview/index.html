@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>語音試聽比較 · Web-Tools</title>
+    <link rel="stylesheet" href="../../assets/css/style.css" />
+    <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg" />
+    <style>
+      .voice { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 14px; }
+      .voice h3 { margin: 0 0 4px; }
+      .voice .meta { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 10px; }
+      .voice audio { width: 100%; }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="../../"><img class="logo" src="../../assets/favicon.svg" alt="" width="26" height="26" /> Web-Tools</a>
+      </div>
+    </header>
+    <main class="container tool-page">
+      <a class="back" href="../../">← 返回工具列表</a>
+      <h1>🔊 倒數區段語音 · 試聽比較</h1>
+      <p class="subtitle">播放各候選語音的「Part A. Part B. Part C.」,挑一個咬字最清楚的告訴我,我就用它重新產生全部 A–Z。</p>
+
+      <div class="voice"><h3>Daniel</h3><div class="meta">英式英語(男)</div><audio controls preload="none" src="../../assets/audio/_voice-preview/daniel.wav"></audio></div>
+      <div class="voice"><h3>Karen</h3><div class="meta">澳洲英語(女)</div><audio controls preload="none" src="../../assets/audio/_voice-preview/karen.wav"></audio></div>
+      <div class="voice"><h3>Tessa</h3><div class="meta">南非英語(女)</div><audio controls preload="none" src="../../assets/audio/_voice-preview/tessa.wav"></audio></div>
+      <div class="voice"><h3>Moira</h3><div class="meta">愛爾蘭英語(女)</div><audio controls preload="none" src="../../assets/audio/_voice-preview/moira.wav"></audio></div>
+      <div class="voice"><h3>Samantha</h3><div class="meta">美式英語(女)· 目前使用中(對照)</div><audio controls preload="none" src="../../assets/audio/_voice-preview/samantha.wav"></audio></div>
+    </main>
+  </body>
+</html>
