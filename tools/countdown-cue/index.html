@@ -26,18 +26,32 @@
 
       .cue-list { margin-top: 18px; display: flex; flex-direction: column; gap: 10px; }
       .cue-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-      .cue-row input { flex: 1 1 120px; width: auto; min-width: 0; }
+      .cue-row input.cue-time { flex: 1 1 100px; width: auto; min-width: 0; }
+      .cue-row input.cue-note { flex: 1 1 140px; width: auto; min-width: 0; }
       .cue-row select { flex: 0 1 auto; width: auto; min-width: 110px; padding: 8px 10px; }
-      .cue-row .rm {
+      .cue-row .rm,
+      .cue-row .mv {
         border: none; background: none; color: var(--text-muted);
         cursor: pointer; font-size: 1.1rem; padding: 4px 8px; border-radius: 6px;
       }
+      .cue-row .mv { font-size: 0.85rem; }
+      .cue-row .mv:hover { color: var(--accent); background: var(--surface-2); }
+      .cue-row .mv:disabled { opacity: 0.3; cursor: default; }
+      .cue-row .mv:disabled:hover { color: var(--text-muted); background: none; }
       .cue-row .rm:hover { color: #e5484d; background: var(--surface-2); }
+      .cue-actions { margin-top: 4px; display: flex; gap: 10px; flex-wrap: wrap; }
       .add-cue {
-        margin-top: 4px; font-size: 0.9rem; background: none; border: 1px dashed var(--border);
+        font-size: 0.9rem; background: none; border: 1px dashed var(--border);
         color: var(--text-muted); padding: 8px 12px; border-radius: var(--radius-sm); cursor: pointer;
       }
       .add-cue:hover { border-color: var(--accent); color: var(--accent); }
+
+      .schedule-bar {
+        margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border);
+        display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+      }
+      .schedule-bar select { flex: 1 1 160px; width: auto; min-width: 0; }
+      .schedule-bar input { flex: 1 1 160px; width: auto; min-width: 0; }
 
       .settings { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; margin-top: 20px; }
       .settings .opt { display: flex; flex-direction: column; gap: 6px; }
@@ -98,7 +112,21 @@
           倒數結尾會落在這些時間點。格式:秒、mm:ss 或 hh:mm:ss。設 <code>0</code> 代表在開頭前面加一段倒數。
         </div>
         <div class="cue-list" id="cueList"></div>
-        <button class="add-cue" id="addCue" type="button">＋ 新增時間點</button>
+        <div class="cue-actions">
+          <button class="add-cue" id="addCue" type="button">＋ 新增時間點</button>
+          <button class="add-cue" id="sortCue" type="button">↕ 依時間排序</button>
+        </div>
+
+        <div class="schedule-bar">
+          <label class="field-label" style="flex-basis:100%">時間表(儲存於本機瀏覽器)</label>
+          <select class="text-input" id="scheduleSelect">
+            <option value="">— 已儲存的時間表 —</option>
+          </select>
+          <button class="btn" id="loadSchedule" type="button">載入</button>
+          <button class="btn" id="deleteSchedule" type="button">刪除</button>
+          <input class="text-input" id="scheduleName" placeholder="時間表名稱" />
+          <button class="btn" id="saveSchedule" type="button">💾 儲存目前時間表</button>
+        </div>
 
         <div class="settings">
           <div class="opt">
@@ -150,16 +178,21 @@
         var $ = function (id) { return document.getElementById(id); };
         var dropzone = $("dropzone"), fileInput = $("file"), fileInfo = $("fileInfo"),
           preview = $("preview"), cueList = $("cueList"), addCueBtn = $("addCue"),
+          sortCueBtn = $("sortCue"),
           countInput = $("count"), voiceVolInput = $("voiceVol"), duckChk = $("duck"),
           addGoChk = $("addGo"), generateBtn = $("generate"),
           progressWrap = $("progressWrap"), progressBar = $("progressBar"),
           statusEl = $("status"), logEl = $("log"), resultEl = $("result"),
-          player = $("player"), downloadLink = $("download");
+          player = $("player"), downloadLink = $("download"),
+          scheduleSelect = $("scheduleSelect"), scheduleNameInput = $("scheduleName"),
+          saveScheduleBtn = $("saveSchedule"), loadScheduleBtn = $("loadSchedule"),
+          deleteScheduleBtn = $("deleteSchedule");
 
         var CLIP_BASE = "../../assets/audio/countdown/en/";
         var CLIP_VER = "281"; // bump when the voice clips change, to bust browser cache
         var NUM = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
         var RATE = 44100;
+        var SCHEDULES_KEY = "webtools-countdown-cue-schedules";
 
         var selectedFile = null, ffmpeg = null, lastUrl = null, previewUrl = null;
         var sourceDuration = null;
@@ -195,13 +228,14 @@
         }
 
         // ---- Cue rows ----
-        function addCueRow(value) {
+        function addCueRow(data) {
+          data = data || {};
           var row = document.createElement("div");
           row.className = "cue-row";
           var inp = document.createElement("input");
           inp.className = "text-input cue-time";
           inp.placeholder = "1:30";
-          if (value != null) inp.value = value;
+          if (data.time != null) inp.value = data.time;
           var sel = document.createElement("select");
           sel.className = "cue-label";
           var op0 = document.createElement("option");
@@ -214,17 +248,146 @@
             op.textContent = "Part " + letter;
             sel.appendChild(op);
           }
+          if (data.label) sel.value = data.label;
+          var noteInp = document.createElement("input");
+          noteInp.className = "text-input cue-note";
+          noteInp.placeholder = "備註(選填)";
+          if (data.note) noteInp.value = data.note;
+          var upBtn = document.createElement("button");
+          upBtn.type = "button"; upBtn.className = "mv up"; upBtn.textContent = "▲"; upBtn.title = "上移";
+          upBtn.addEventListener("click", function () {
+            var prev = row.previousElementSibling;
+            if (prev) { cueList.insertBefore(row, prev); updateMoveButtons(); }
+          });
+          var downBtn = document.createElement("button");
+          downBtn.type = "button"; downBtn.className = "mv down"; downBtn.textContent = "▼"; downBtn.title = "下移";
+          downBtn.addEventListener("click", function () {
+            var next = row.nextElementSibling;
+            if (next) { cueList.insertBefore(next, row); updateMoveButtons(); }
+          });
           var rm = document.createElement("button");
           rm.type = "button"; rm.className = "rm"; rm.textContent = "✕"; rm.title = "移除";
           rm.addEventListener("click", function () {
             if (cueList.children.length > 1) row.remove();
-            else { inp.value = ""; sel.value = ""; }
+            else { inp.value = ""; sel.value = ""; noteInp.value = ""; }
+            updateMoveButtons();
           });
-          row.appendChild(inp); row.appendChild(sel); row.appendChild(rm);
+          row.appendChild(inp); row.appendChild(sel); row.appendChild(noteInp);
+          row.appendChild(upBtn); row.appendChild(downBtn); row.appendChild(rm);
           cueList.appendChild(row);
+          updateMoveButtons();
         }
-        addCueRow("");
-        addCueBtn.addEventListener("click", function () { addCueRow(""); });
+        function updateMoveButtons() {
+          var rows = Array.prototype.slice.call(cueList.querySelectorAll(".cue-row"));
+          rows.forEach(function (row, idx) {
+            row.querySelector(".mv.up").disabled = idx === 0;
+            row.querySelector(".mv.down").disabled = idx === rows.length - 1;
+          });
+        }
+        addCueRow();
+        addCueBtn.addEventListener("click", function () { addCueRow(); });
+
+        sortCueBtn.addEventListener("click", function () {
+          var rows = Array.prototype.slice.call(cueList.querySelectorAll(".cue-row"));
+          var withTime = rows.map(function (row, idx) {
+            var raw = row.querySelector(".cue-time").value.trim();
+            var t = raw === "" ? NaN : parseTime(raw);
+            return { row: row, idx: idx, time: (t == null || isNaN(t)) ? Infinity : t };
+          });
+          withTime.sort(function (a, b) {
+            return a.time === b.time ? a.idx - b.idx : a.time - b.time;
+          });
+          withTime.forEach(function (item) { cueList.appendChild(item.row); });
+          updateMoveButtons();
+        });
+
+        // ---- Saved schedules (localStorage) ----
+        function loadSchedules() {
+          try {
+            var arr = JSON.parse(localStorage.getItem(SCHEDULES_KEY) || "[]");
+            return Array.isArray(arr) ? arr : [];
+          } catch (_) { return []; }
+        }
+        function persistSchedules(list) {
+          try { localStorage.setItem(SCHEDULES_KEY, JSON.stringify(list)); } catch (_) {}
+        }
+        function refreshScheduleSelect(selectName) {
+          var schedules = loadSchedules();
+          scheduleSelect.innerHTML = "";
+          var op0 = document.createElement("option");
+          op0.value = ""; op0.textContent = "— 已儲存的時間表 —";
+          scheduleSelect.appendChild(op0);
+          schedules.forEach(function (s) {
+            var op = document.createElement("option");
+            op.value = s.name; op.textContent = s.name;
+            scheduleSelect.appendChild(op);
+          });
+          if (selectName) scheduleSelect.value = selectName;
+        }
+        function collectCues() {
+          var rows = cueList.querySelectorAll(".cue-row");
+          var cues = [];
+          for (var i = 0; i < rows.length; i++) {
+            cues.push({
+              time: rows[i].querySelector(".cue-time").value,
+              label: rows[i].querySelector(".cue-label").value,
+              note: rows[i].querySelector(".cue-note").value
+            });
+          }
+          return cues;
+        }
+        function applySchedule(schedule) {
+          cueList.innerHTML = "";
+          if (schedule.cues && schedule.cues.length) {
+            schedule.cues.forEach(function (c) { addCueRow(c); });
+          } else {
+            addCueRow();
+          }
+          if (schedule.count != null) countInput.value = schedule.count;
+          if (schedule.voiceVol != null) voiceVolInput.value = schedule.voiceVol;
+          if (schedule.duck != null) duckChk.checked = !!schedule.duck;
+          if (schedule.addGo != null) addGoChk.checked = !!schedule.addGo;
+        }
+        saveScheduleBtn.addEventListener("click", function () {
+          var name = scheduleNameInput.value.trim();
+          if (!name) { setStatus("✗ 請輸入時間表名稱", "error"); return; }
+          var schedules = loadSchedules();
+          var data = {
+            name: name,
+            cues: collectCues(),
+            count: countInput.value,
+            voiceVol: voiceVolInput.value,
+            duck: duckChk.checked,
+            addGo: addGoChk.checked
+          };
+          var existingIdx = -1;
+          for (var i = 0; i < schedules.length; i++) if (schedules[i].name === name) existingIdx = i;
+          if (existingIdx >= 0) schedules[existingIdx] = data; else schedules.push(data);
+          persistSchedules(schedules);
+          refreshScheduleSelect(name);
+          setStatus("✓ 已儲存時間表「" + name + "」", "ok");
+        });
+        loadScheduleBtn.addEventListener("click", function () {
+          var name = scheduleSelect.value;
+          if (!name) { setStatus("✗ 請先選擇要載入的時間表", "error"); return; }
+          var schedules = loadSchedules();
+          var s = null;
+          for (var i = 0; i < schedules.length; i++) if (schedules[i].name === name) s = schedules[i];
+          if (!s) return;
+          applySchedule(s);
+          scheduleNameInput.value = s.name;
+          setStatus("✓ 已載入時間表「" + s.name + "」", "ok");
+        });
+        deleteScheduleBtn.addEventListener("click", function () {
+          var name = scheduleSelect.value;
+          if (!name) { setStatus("✗ 請先選擇要刪除的時間表", "error"); return; }
+          var schedules = loadSchedules().filter(function (s) { return s.name !== name; });
+          persistSchedules(schedules);
+          refreshScheduleSelect();
+          scheduleNameInput.value = "";
+          setStatus("✓ 已刪除時間表", "ok");
+        });
+        refreshScheduleSelect();
 
         // ---- File pick ----
         function pickFile(file) {
