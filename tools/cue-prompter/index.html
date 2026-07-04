@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>演出提詞機 · Web-Tools</title>
+    <link rel="stylesheet" href="../../assets/css/style.css" />
+    <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="../../assets/favicon-32.png" />
+    <link rel="apple-touch-icon" href="../../assets/apple-touch-icon.png" />
+    <style>
+      .mode-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+      .mode-tab {
+        font-family: var(--sans); font-size: 0.9rem; font-weight: 600; padding: 9px 16px;
+        border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2);
+        color: var(--text-muted); cursor: pointer;
+      }
+      .mode-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+      .mode-panel { display: none; }
+      .mode-panel.show { display: block; }
+
+      .script-name-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+      .script-name-row input { flex: 1 1 220px; }
+
+      details.drive-box { margin-top: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 14px; background: var(--surface-2); }
+      details.drive-box summary { cursor: pointer; padding: 10px 0; font-weight: 600; }
+      .drive-hint { font-size: 0.8rem; color: var(--text-muted); line-height: 1.7; margin: 6px 0 14px; white-space: pre-line; }
+      .drive-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+      .drive-row input { flex: 1 1 220px; }
+      .drive-files { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 16px; }
+      .drive-file-btn {
+        text-align: left; font-family: var(--mono); font-size: 0.85rem; padding: 8px 10px;
+        border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface);
+        color: var(--text); cursor: pointer;
+      }
+      .drive-file-btn:hover { border-color: var(--accent); }
+
+      .bulk-paste { margin-top: 20px; }
+      .bulk-paste textarea { min-height: 100px; font-size: 0.85rem; }
+
+      .cue-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px; background: var(--surface-2); }
+      .cue-row input.time { width: 82px; flex: 0 0 auto; }
+      .cue-row input.text { flex: 1 1 160px; min-width: 0; }
+      .cue-row .sep { color: var(--text-muted); }
+      .cue-row label.voice-chk { display: flex; align-items: center; gap: 4px; font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; }
+      .cue-row label.voice-chk input { width: auto; }
+      .cue-row .mini-btn { border: none; background: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; padding: 4px 6px; border-radius: 6px; }
+      .cue-row .mini-btn:hover { background: var(--surface); color: var(--text); }
+      .cue-row .mini-btn.rm:hover { color: #e5484d; }
+      .cue-empty { color: var(--text-muted); font-size: 0.88rem; padding: 12px 4px; }
+
+      .settings { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; margin-top: 20px; }
+      .settings .opt { display: flex; flex-direction: column; gap: 6px; }
+      .settings .opt input[type="number"] { width: 90px; }
+      .hint { font-size: 0.78rem; color: var(--text-muted); }
+
+      .play-source { margin-bottom: 18px; }
+      .dropzone-mini {
+        border: 2px dashed var(--border); border-radius: var(--radius); padding: 16px; text-align: center;
+        color: var(--text-muted); cursor: pointer; background: var(--surface-2); font-size: 0.85rem;
+      }
+      .dropzone-mini:hover { border-color: var(--accent); color: var(--text); }
+
+      .prompter { text-align: center; padding: 28px 12px; background: var(--surface-2); border-radius: var(--radius); border: 1px solid var(--border); }
+      .prompter-time { font-family: var(--mono); color: var(--text-muted); font-size: 0.95rem; margin-bottom: 10px; }
+      .prompter-current { font-size: clamp(1.4rem, 5vw, 2.4rem); font-weight: 700; min-height: 1.4em; line-height: 1.3; }
+      .prompter-current.empty { color: var(--text-muted); font-weight: 400; font-size: 1.2rem; }
+      .prompter-next { margin-top: 14px; font-size: 1rem; color: var(--accent); min-height: 1.4em; }
+
+      .progress-track { height: 10px; border-radius: 999px; background: var(--surface-2); overflow: hidden; border: 1px solid var(--border); margin-top: 18px; }
+      .progress-bar { height: 100%; width: 0%; background: var(--accent); transition: width 0.15s linear; }
+
+      .play-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 18px; }
+      .play-controls input[type="range"] { flex: 1 1 160px; }
+      .check { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--text); }
+      .check input { width: auto; }
+
+      .cue-list-view { margin-top: 20px; max-height: 320px; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+      .cue-list-view .item { padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2); font-size: 0.9rem; }
+      .cue-list-view .item .t { font-family: var(--mono); font-size: 0.78rem; color: var(--text-muted); margin-right: 8px; }
+      .cue-list-view .item.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); font-weight: 700; }
+      .note { font-size: 0.82rem; color: var(--text-muted); margin-top: 18px; line-height: 1.6; }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="../../"><img class="logo" src="../../assets/favicon.svg" alt="" width="26" height="26" /> Web-Tools</a>
+        <div class="header-actions">
+          <button type="button" class="reload-btn" onclick="this.classList.add('spinning');location.reload()" aria-label="重新整理" title="重新整理">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+              <polyline points="21 3 21 9 15 9" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="container tool-page">
+      <a class="back" href="../../">← 返回工具列表</a>
+      <h1>🎬 演出提詞機(v2)</h1>
+      <p class="subtitle">
+        類似歌詞提詞器的演出流程小工具:先把流程腳本(時間點 + 段落內容)編輯好,
+        播放時會用大字顯示目前段落、提前顯示下一段「預告」,並可選擇在段落開始前播放倒數提示音。
+        腳本可存成本機檔案,也可選配登入 Google 雲端硬碟存取。
+      </p>
+
+      <div class="panel">
+        <div class="script-name-row">
+          <label class="field-label" for="scriptName" style="margin:0">腳本名稱</label>
+          <input class="text-input" id="scriptName" type="text" value="未命名腳本" />
+        </div>
+        <div class="toolbar">
+          <button class="btn" id="newScript" type="button">🆕 新腳本</button>
+          <button class="btn" id="saveLocal" type="button">⬇ 下載腳本(JSON)</button>
+          <button class="btn" id="loadLocalBtn" type="button">⬆ 開啟本機腳本</button>
+          <input type="file" id="loadLocalFile" accept="application/json,.json" hidden />
+        </div>
+        <div class="status" id="scriptStatus"></div>
+
+        <details class="drive-box">
+          <summary>☁️ Google 雲端硬碟(選用)</summary>
+          <div class="drive-hint">設定步驟(需你自行到 Google Cloud Console 建立,本工具不會替你建立或驗證):
+1. 建立專案 → 「API 和服務」→「憑證」→ 建立「OAuth 用戶端 ID」,類型選「網頁應用程式」。
+2. 在「已授權的 JavaScript 來源」加入這個網站的網域(例如 https://your-user.github.io),不需要設定重新導向 URI。
+3. 到「OAuth 同意畫面」新增範圍 https://www.googleapis.com/auth/drive.file(僅能存取本工具自己建立的檔案,不會讀取你雲端硬碟其他檔案)。
+4. 把產生的 Client ID 貼到下方欄位並儲存,再按「登入 Google」。</div>
+          <div class="drive-row">
+            <input class="text-input" id="driveClientId" type="text" placeholder="貼上你的 Google OAuth Client ID" />
+            <button class="btn" id="saveClientId" type="button">儲存</button>
+          </div>
+          <div class="toolbar">
+            <button class="btn" id="driveSignIn" type="button">登入 Google</button>
+            <button class="btn" id="driveSignOut" type="button" disabled>登出</button>
+            <button class="btn" id="driveSave" type="button" disabled>儲存到雲端</button>
+            <button class="btn" id="driveList" type="button" disabled>從雲端載入清單</button>
+          </div>
+          <div class="status" id="driveStatus"></div>
+          <div class="drive-files" id="driveFiles"></div>
+        </details>
+      </div>
+
+      <div class="mode-tabs">
+        <button class="mode-tab active" id="tabEdit" type="button">📝 腳本編輯</button>
+        <button class="mode-tab" id="tabPlay" type="button">▶️ 提詞播放</button>
+      </div>
+
+      <div class="panel mode-panel show" id="panelEdit">
+        <div class="bulk-paste">
+          <label class="field-label" for="bulkText">批次貼上(比照「開始-結束 內容」格式,每行一段,例如從排練截圖照打)</label>
+          <textarea id="bulkText" placeholder="0:00-0:23 薰天使下懸停轉360、冷+檸公轉自轉&#10;0:33-1:05 湯+筑&#10;1:05-1:30 薰 solo"></textarea>
+          <div class="toolbar">
+            <button class="btn" id="bulkParse" type="button">解析並加入段落</button>
+            <span class="hint">也支援只有單一時間點的格式,例如「1:30 冷+檸」</span>
+          </div>
+        </div>
+
+        <label class="field-label" style="margin-top:10px">段落列表</label>
+        <div class="cue-list" id="cueList"></div>
+        <div class="toolbar">
+          <button class="btn" id="addCue" type="button">＋ 新增段落</button>
+          <button class="btn" id="clearCues" type="button">清空全部段落</button>
+        </div>
+
+        <div class="settings">
+          <div class="opt">
+            <label class="field-label" for="countdownSeconds">倒數秒數</label>
+            <input class="text-input" id="countdownSeconds" type="number" min="1" max="10" step="1" value="5" />
+            <span class="hint">1–10</span>
+          </div>
+          <div class="opt">
+            <label class="field-label" for="voiceVol">語音音量</label>
+            <input class="text-input" id="voiceVol" type="number" min="0" max="300" step="10" value="120" />
+            <span class="hint">%</span>
+          </div>
+          <div class="opt">
+            <label class="field-label" for="preRoll">預告提前秒數</label>
+            <input class="text-input" id="preRoll" type="number" min="0" max="30" step="1" value="5" />
+            <span class="hint">播放時提前幾秒顯示下一段</span>
+          </div>
+        </div>
+        <p class="note">每個段落可勾選「提示音」,播放到接近該段落開始時間前(依上方倒數秒數),會用語音倒數 5…1 提醒。</p>
+      </div>
+
+      <div class="mode-panel" id="panelPlay">
+        <div class="play-source">
+          <div class="dropzone-mini" id="audioDropzone">
+            🎵 點擊選擇音樂檔(選用)或拖曳到此處 — 不選擇的話會改用手動計時器,方便音樂由其他裝置播放時同步提詞
+          </div>
+          <input type="file" id="audioFile" accept="audio/*" hidden />
+          <div class="file-info hint" id="audioFileInfo" style="margin-top:8px"></div>
+        </div>
+
+        <div class="prompter">
+          <div class="prompter-time" id="prompterTime">00:00 / --:--</div>
+          <div class="prompter-current empty" id="prompterCurrent">尚未開始</div>
+          <div class="prompter-next" id="prompterNext"></div>
+          <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+        </div>
+
+        <div class="play-controls">
+          <button class="btn primary" id="playBtn" type="button">▶ 開始</button>
+          <button class="btn" id="pauseBtn" type="button" disabled>⏸ 暫停</button>
+          <button class="btn" id="resetBtn" type="button">⏮ 重置</button>
+          <input type="range" id="seekRange" min="0" max="0" step="0.1" value="0" disabled style="display:none" />
+          <label class="check"><input type="checkbox" id="voiceEnabled" checked /> 播放提示音</label>
+        </div>
+
+        <div class="cue-list-view" id="cueListView"></div>
+      </div>
+    </main>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+      (function () {
+        var $ = function (id) { return document.getElementById(id); };
+
+        // ---------------- Script model ----------------
+        function defaultScript() {
+          return {
+            version: 1,
+            name: "未命名腳本",
+            preRoll: 5,
+            countdownSeconds: 5,
+            voiceVol: 120,
+            cues: [],
+          };
+        }
+        var script = defaultScript();
+
+        var scriptNameInput = $("scriptName"), scriptStatus = $("scriptStatus");
+        var cueListEl = $("cueList"), countdownSecondsInput = $("countdownSeconds"),
+          voiceVolInput = $("voiceVol"), preRollInput = $("preRoll");
+
+        function setScriptStatus(msg, kind) {
+          scriptStatus.textContent = msg || "";
+          scriptStatus.className = "status" + (kind ? " " + kind : "");
+        }
+
+        // ---------------- Time helpers ----------------
+        function parseTime(raw) {
+          raw = (raw || "").trim();
+          if (raw === "") return null;
+          if (/^\d*\.?\d+$/.test(raw)) return parseFloat(raw);
+          var parts = raw.split(":");
+          if (parts.length < 2 || parts.length > 3) return NaN;
+          var s = 0;
+          for (var i = 0; i < parts.length; i++) {
+            if (!/^\d*\.?\d+$/.test(parts[i])) return NaN;
+            s = s * 60 + parseFloat(parts[i]);
+          }
+          return s;
+        }
+        function fmtTime(s) {
+          if (s == null || !isFinite(s)) return "--:--";
+          s = Math.max(0, Math.round(s));
+          var m = Math.floor(s / 60), sec = s % 60;
+          return (m < 10 ? "0" : "") + m + ":" + (sec < 10 ? "0" : "") + sec;
+        }
+
+        // ---------------- Cue list editor ----------------
+        function renderCueList() {
+          cueListEl.innerHTML = "";
+          if (script.cues.length === 0) {
+            var empty = document.createElement("div");
+            empty.className = "cue-empty";
+            empty.textContent = "尚無段落,請用上方批次貼上或按「新增段落」。";
+            cueListEl.appendChild(empty);
+            return;
+          }
+          script.cues.forEach(function (cue, idx) {
+            var row = document.createElement("div");
+            row.className = "cue-row";
+
+            var startInp = document.createElement("input");
+            startInp.className = "text-input time";
+            startInp.placeholder = "0:00";
+            startInp.value = cue.start != null ? fmtTime(cue.start) : "";
+            startInp.addEventListener("change", function () {
+              var t = parseTime(startInp.value);
+              cue.start = t === null || isNaN(t) ? 0 : t;
+              startInp.value = fmtTime(cue.start);
+            });
+
+            var sep = document.createElement("span");
+            sep.className = "sep";
+            sep.textContent = "–";
+
+            var endInp = document.createElement("input");
+            endInp.className = "text-input time";
+            endInp.placeholder = "(選填)";
+            endInp.value = cue.end != null ? fmtTime(cue.end) : "";
+            endInp.addEventListener("change", function () {
+              if (endInp.value.trim() === "") { cue.end = null; return; }
+              var t = parseTime(endInp.value);
+              cue.end = t === null || isNaN(t) ? null : t;
+              endInp.value = cue.end == null ? "" : fmtTime(cue.end);
+            });
+
+            var textInp = document.createElement("input");
+            textInp.className = "text-input text";
+            textInp.placeholder = "段落內容,例如:湯+筑";
+            textInp.value = cue.text || "";
+            textInp.addEventListener("input", function () { cue.text = textInp.value; });
+
+            var voiceLabel = document.createElement("label");
+            voiceLabel.className = "voice-chk";
+            var voiceChk = document.createElement("input");
+            voiceChk.type = "checkbox";
+            voiceChk.checked = !!cue.voice;
+            voiceChk.addEventListener("change", function () { cue.voice = voiceChk.checked; });
+            voiceLabel.appendChild(voiceChk);
+            voiceLabel.appendChild(document.createTextNode("提示音"));
+
+            var upBtn = document.createElement("button");
+            upBtn.type = "button"; upBtn.className = "mini-btn"; upBtn.textContent = "↑"; upBtn.title = "上移";
+            upBtn.addEventListener("click", function () {
+              if (idx === 0) return;
+              script.cues.splice(idx - 1, 0, script.cues.splice(idx, 1)[0]);
+              renderCueList();
+            });
+            var downBtn = document.createElement("button");
+            downBtn.type = "button"; downBtn.className = "mini-btn"; downBtn.textContent = "↓"; downBtn.title = "下移";
+            downBtn.addEventListener("click", function () {
+              if (idx === script.cues.length - 1) return;
+              script.cues.splice(idx + 1, 0, script.cues.splice(idx, 1)[0]);
+              renderCueList();
+            });
+            var rmBtn = document.createElement("button");
+            rmBtn.type = "button"; rmBtn.className = "mini-btn rm"; rmBtn.textContent = "✕"; rmBtn.title = "刪除";
+            rmBtn.addEventListener("click", function () {
+              script.cues.splice(idx, 1);
+              renderCueList();
+            });
+
+            row.appendChild(startInp); row.appendChild(sep); row.appendChild(endInp);
+            row.appendChild(textInp); row.appendChild(voiceLabel);
+            row.appendChild(upBtn); row.appendChild(downBtn); row.appendChild(rmBtn);
+            cueListEl.appendChild(row);
+          });
+        }
+
+        function sortCues() {
+          script.cues.sort(function (a, b) { return a.start - b.start; });
+        }
+
+        $("addCue").addEventListener("click", function () {
+          script.cues.push({ start: 0, end: null, text: "", voice: true });
+          renderCueList();
+        });
+        $("clearCues").addEventListener("click", function () {
+          if (script.cues.length && !confirm("確定要清空全部段落嗎?")) return;
+          script.cues = [];
+          renderCueList();
+        });
+
+        // ---------------- Bulk paste parser ----------------
+        // Matches "start-end text" or just "start text"
+        var LINE_RE = /^\s*(\d{1,2}(?::\d{1,2}){1,2}|\d+(?:\.\d+)?)\s*(?:-|~|—|to)\s*(\d{1,2}(?::\d{1,2}){1,2}|\d+(?:\.\d+)?)?\s+(.*)$/;
+        var LINE_RE_SINGLE = /^\s*(\d{1,2}(?::\d{1,2}){1,2}|\d+(?:\.\d+)?)\s+(.*)$/;
+
+        function parseBulkLine(line) {
+          line = line.trim();
+          if (!line) return null;
+          var m = line.match(LINE_RE);
+          if (m) {
+            var start = parseTime(m[1]);
+            var end = m[2] ? parseTime(m[2]) : null;
+            var text = (m[3] || "").trim();
+            if (start !== null && !isNaN(start) && text) {
+              return { start: start, end: end !== null && !isNaN(end) ? end : null, text: text, voice: true };
+            }
+          }
+          var m2 = line.match(LINE_RE_SINGLE);
+          if (m2) {
+            var s2 = parseTime(m2[1]);
+            var t2 = (m2[2] || "").trim();
+            if (s2 !== null && !isNaN(s2) && t2) {
+              return { start: s2, end: null, text: t2, voice: true };
+            }
+          }
+          return null;
+        }
+
+        $("bulkParse").addEventListener("click", function () {
+          var raw = $("bulkText").value.split("\n");
+          var added = 0, skipped = 0;
+          raw.forEach(function (line) {
+            if (!line.trim()) return;
+            var cue = parseBulkLine(line);
+            if (cue) { script.cues.push(cue); added++; }
+            else skipped++;
+          });
+          sortCues();
+          renderCueList();
+          if (added) $("bulkText").value = "";
+          setScriptStatus(
+            added ? "✓ 已加入 " + added + " 段" + (skipped ? "(略過 " + skipped + " 行無法解析)" : "") : "✗ 沒有可解析的行,請確認格式",
+            added ? "ok" : "error"
+          );
+        });
+
+        // ---------------- Local save / load ----------------
+        function readSettingsIntoScript() {
+          script.name = scriptNameInput.value.trim() || "未命名腳本";
+          script.countdownSeconds = Math.min(10, Math.max(1, Math.round(Number(countdownSecondsInput.value)) || 5));
+          script.voiceVol = Math.max(0, Number(voiceVolInput.value) || 0);
+          script.preRoll = Math.max(0, Number(preRollInput.value) || 0);
+        }
+        function applyScriptToUI() {
+          scriptNameInput.value = script.name || "未命名腳本";
+          countdownSecondsInput.value = script.countdownSeconds || 5;
+          voiceVolInput.value = script.voiceVol != null ? script.voiceVol : 120;
+          preRollInput.value = script.preRoll != null ? script.preRoll : 5;
+          renderCueList();
+          renderCueListView();
+        }
+
+        $("newScript").addEventListener("click", function () {
+          if (script.cues.length && !confirm("目前的腳本尚未儲存,確定要建立新腳本嗎?")) return;
+          script = defaultScript();
+          driveFileId = null;
+          applyScriptToUI();
+          setScriptStatus("已建立新腳本", "ok");
+        });
+
+        $("saveLocal").addEventListener("click", function () {
+          readSettingsIntoScript();
+          var blob = new Blob([JSON.stringify(script, null, 2)], { type: "application/json" });
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement("a");
+          a.href = url;
+          a.download = (script.name || "cue-script") + ".json";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+          setScriptStatus("✓ 已下載 " + a.download, "ok");
+        });
+
+        $("loadLocalBtn").addEventListener("click", function () { $("loadLocalFile").click(); });
+        $("loadLocalFile").addEventListener("change", function () {
+          var file = $("loadLocalFile").files && $("loadLocalFile").files[0];
+          if (!file) return;
+          var reader = new FileReader();
+          reader.onload = function () {
+            try {
+              var obj = JSON.parse(reader.result);
+              loadScriptObject(obj);
+              setScriptStatus("✓ 已載入 " + file.name, "ok");
+            } catch (err) {
+              setScriptStatus("✗ 讀取失敗:" + err.message, "error");
+            }
+          };
+          reader.readAsText(file);
+          $("loadLocalFile").value = "";
+        });
+
+        function loadScriptObject(obj) {
+          script = {
+            version: 1,
+            name: obj.name || "未命名腳本",
+            preRoll: obj.preRoll != null ? obj.preRoll : 5,
+            countdownSeconds: obj.countdownSeconds != null ? obj.countdownSeconds : 5,
+            voiceVol: obj.voiceVol != null ? obj.voiceVol : 120,
+            cues: Array.isArray(obj.cues) ? obj.cues.map(function (c) {
+              return { start: Number(c.start) || 0, end: c.end != null ? Number(c.end) : null, text: c.text || "", voice: c.voice !== false };
+            }) : [],
+          };
+          sortCues();
+          driveFileId = null;
+          driveFileName = null;
+          applyScriptToUI();
+          resetPlayback();
+        }
+
+        [countdownSecondsInput, voiceVolInput, preRollInput, scriptNameInput].forEach(function (el) {
+          el.addEventListener("change", readSettingsIntoScript);
+        });
+
+        // ---------------- Mode tabs ----------------
+        var tabEdit = $("tabEdit"), tabPlay = $("tabPlay"), panelEdit = $("panelEdit"), panelPlay = $("panelPlay");
+        tabEdit.addEventListener("click", function () {
+          tabEdit.classList.add("active"); tabPlay.classList.remove("active");
+          panelEdit.classList.add("show"); panelPlay.classList.remove("show");
+        });
+        tabPlay.addEventListener("click", function () {
+          readSettingsIntoScript();
+          sortCues();
+          tabPlay.classList.add("active"); tabEdit.classList.remove("active");
+          panelPlay.classList.add("show"); panelEdit.classList.remove("show");
+          renderCueListView();
+          updateTotalDuration();
+        });
+
+        // ---------------- Voice clips (reused from countdown-cue) ----------------
+        var CLIP_BASE = "../../assets/audio/countdown/en/";
+        var CLIP_VER = "281";
+        var NUM = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+        var actx = null, clipCache = {};
+        function getCtx() {
+          if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+          return actx;
+        }
+        function decodeClip(word) {
+          if (clipCache[word]) return Promise.resolve(clipCache[word]);
+          return fetch(CLIP_BASE + word + ".wav?v=" + CLIP_VER)
+            .then(function (r) { return r.arrayBuffer(); })
+            .then(function (ab) { return getCtx().decodeAudioData(ab); })
+            .then(function (buf) { clipCache[word] = buf; return buf; });
+        }
+        function playClip(word) {
+          decodeClip(word).then(function (buf) {
+            var ctx = getCtx();
+            if (ctx.state === "suspended") ctx.resume();
+            var src = ctx.createBufferSource();
+            src.buffer = buf;
+            var g = ctx.createGain();
+            g.gain.value = Math.max(0, (script.voiceVol || 120) / 100);
+            src.connect(g).connect(ctx.destination);
+            src.start();
+          }).catch(function () {});
+        }
+
+        // ---------------- Playback engine ----------------
+        var audioEl = null, audioFile = null, manualRunning = false, manualAccum = 0, manualStart = 0;
+        var lastElapsed = -1, rafId = null, currentCueIdx = -1;
+        var prompterTime = $("prompterTime"), prompterCurrent = $("prompterCurrent"), prompterNext = $("prompterNext"),
+          progressBar = $("progressBar"), playBtn = $("playBtn"), pauseBtn = $("pauseBtn"), resetBtn = $("resetBtn"),
+          seekRange = $("seekRange"), voiceEnabledChk = $("voiceEnabled"), cueListViewEl = $("cueListView"),
+          audioDropzone = $("audioDropzone"), audioFileInput = $("audioFile"), audioFileInfo = $("audioFileInfo");
+
+        var totalDuration = null;
+
+        function updateTotalDuration() {
+          if (audioEl && isFinite(audioEl.duration)) { totalDuration = audioEl.duration; return; }
+          var max = 0;
+          script.cues.forEach(function (c) { max = Math.max(max, c.end != null ? c.end : c.start); });
+          totalDuration = script.cues.length ? max : null;
+        }
+
+        function pickAudio(file) {
+          if (!file) return;
+          audioFile = file;
+          if (audioEl) { audioEl.pause(); audioEl.src = ""; }
+          audioEl = new Audio();
+          audioEl.src = URL.createObjectURL(file);
+          audioEl.addEventListener("loadedmetadata", function () {
+            updateTotalDuration();
+            seekRange.max = audioEl.duration;
+            seekRange.style.display = "block";
+            seekRange.disabled = false;
+          });
+          audioEl.addEventListener("ended", function () { pausePlayback(); });
+          audioEl.addEventListener("seeked", function () { lastElapsed = audioEl.currentTime; });
+          audioFileInfo.textContent = "已選擇:" + file.name;
+          resetPlayback();
+        }
+        audioDropzone.addEventListener("click", function () { audioFileInput.click(); });
+        audioFileInput.addEventListener("change", function () {
+          if (audioFileInput.files && audioFileInput.files[0]) pickAudio(audioFileInput.files[0]);
+        });
+        ["dragenter", "dragover"].forEach(function (ev) {
+          audioDropzone.addEventListener(ev, function (e) { e.preventDefault(); audioDropzone.style.borderColor = "var(--accent)"; });
+        });
+        ["dragleave", "drop"].forEach(function (ev) {
+          audioDropzone.addEventListener(ev, function (e) { e.preventDefault(); audioDropzone.style.borderColor = ""; });
+        });
+        audioDropzone.addEventListener("drop", function (e) {
+          if (e.dataTransfer.files && e.dataTransfer.files[0]) pickAudio(e.dataTransfer.files[0]);
+        });
+
+        function getElapsed() {
+          if (audioEl) return audioEl.currentTime;
+          if (manualRunning) return manualAccum + (Date.now() - manualStart) / 1000;
+          return manualAccum;
+        }
+        function isRunning() {
+          return audioEl ? !audioEl.paused && !audioEl.ended : manualRunning;
+        }
+
+        function renderCueListView() {
+          cueListViewEl.innerHTML = "";
+          script.cues.forEach(function (cue, idx) {
+            var item = document.createElement("div");
+            item.className = "item" + (idx === currentCueIdx ? " active" : "");
+            item.dataset.idx = idx;
+            var t = document.createElement("span");
+            t.className = "t";
+            t.textContent = fmtTime(cue.start) + (cue.end != null ? "–" + fmtTime(cue.end) : "");
+            item.appendChild(t);
+            item.appendChild(document.createTextNode(cue.text || "(無內容)"));
+            cueListViewEl.appendChild(item);
+          });
+        }
+
+        function findCurrentCueIndex(elapsed) {
+          var idx = -1;
+          for (var i = 0; i < script.cues.length; i++) {
+            if (script.cues[i].start <= elapsed) idx = i; else break;
+          }
+          return idx;
+        }
+
+        function updateDisplay() {
+          var elapsed = getElapsed();
+          prompterTime.textContent = fmtTime(elapsed) + " / " + fmtTime(totalDuration);
+          if (totalDuration) progressBar.style.width = Math.min(100, (elapsed / totalDuration) * 100) + "%";
+
+          var idx = findCurrentCueIndex(elapsed);
+          if (idx !== currentCueIdx) {
+            currentCueIdx = idx;
+            renderCueListView();
+            var activeEl = cueListViewEl.querySelector('.item[data-idx="' + idx + '"]');
+            if (activeEl) activeEl.scrollIntoView({ block: "center", behavior: "smooth" });
+          }
+          var cur = idx >= 0 ? script.cues[idx] : null;
+          if (cur) {
+            prompterCurrent.textContent = cur.text || "(無內容)";
+            prompterCurrent.classList.remove("empty");
+          } else {
+            prompterCurrent.textContent = script.cues.length ? "尚未開始" : "尚無段落";
+            prompterCurrent.classList.add("empty");
+          }
+
+          var next = script.cues[idx + 1];
+          if (next && (next.start - elapsed) <= (script.preRoll || 0) && (next.start - elapsed) > -0.5) {
+            prompterNext.textContent = "接下來:" + (next.text || "(無內容)") + "(" + Math.max(0, Math.ceil(next.start - elapsed)) + "s)";
+          } else {
+            prompterNext.textContent = "";
+          }
+
+          if (seekRange && audioEl && !seekRange.matches(":active")) seekRange.value = elapsed;
+
+          checkVoiceTriggers(lastElapsed, elapsed);
+          lastElapsed = elapsed;
+        }
+
+        function checkVoiceTriggers(prev, elapsed) {
+          if (!voiceEnabledChk.checked || prev < 0 || elapsed < prev) return;
+          var L = script.countdownSeconds || 5;
+          script.cues.forEach(function (cue) {
+            if (!cue.voice) return;
+            for (var k = 1; k <= L; k++) {
+              var target = cue.start - k;
+              if (target >= 0 && prev < target && target <= elapsed) playClip(NUM[k]);
+            }
+          });
+        }
+
+        function tick() {
+          updateDisplay();
+          if (isRunning()) rafId = requestAnimationFrame(tick);
+          else rafId = null;
+        }
+        function ensureTicking() {
+          if (!rafId) rafId = requestAnimationFrame(tick);
+        }
+
+        function startPlayback() {
+          if (getCtx().state === "suspended") getCtx().resume();
+          if (audioEl) {
+            audioEl.play();
+          } else {
+            manualRunning = true;
+            manualStart = Date.now();
+          }
+          playBtn.disabled = true;
+          pauseBtn.disabled = false;
+          ensureTicking();
+        }
+        function pausePlayback() {
+          if (audioEl) {
+            audioEl.pause();
+          } else if (manualRunning) {
+            manualAccum += (Date.now() - manualStart) / 1000;
+            manualRunning = false;
+          }
+          playBtn.disabled = false;
+          pauseBtn.disabled = true;
+        }
+        function resetPlayback() {
+          pausePlayback();
+          if (audioEl) audioEl.currentTime = 0;
+          manualAccum = 0;
+          manualRunning = false;
+          lastElapsed = -1;
+          currentCueIdx = -1;
+          updateTotalDuration();
+          updateDisplay();
+        }
+
+        playBtn.addEventListener("click", startPlayback);
+        pauseBtn.addEventListener("click", pausePlayback);
+        resetBtn.addEventListener("click", resetPlayback);
+        seekRange.addEventListener("input", function () {
+          if (audioEl) audioEl.currentTime = Number(seekRange.value);
+        });
+
+        // ---------------- Google Drive integration ----------------
+        var DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+        var DRIVE_FOLDER_NAME = "WebTools-CuePrompter";
+        var driveClientIdInput = $("driveClientId"), driveStatus = $("driveStatus"),
+          driveSignInBtn = $("driveSignIn"), driveSignOutBtn = $("driveSignOut"),
+          driveSaveBtn = $("driveSave"), driveListBtn = $("driveList"), driveFilesEl = $("driveFiles");
+        var driveClientId = localStorage.getItem("cue-prompter:driveClientId") || "";
+        var driveTokenClient = null, driveAccessToken = null, driveFolderId = null, driveFileId = null, driveFileName = null;
+        driveClientIdInput.value = driveClientId;
+
+        function setDriveStatus(msg, kind) {
+          driveStatus.textContent = msg || "";
+          driveStatus.className = "status" + (kind ? " " + kind : "");
+        }
+
+        $("saveClientId").addEventListener("click", function () {
+          driveClientId = driveClientIdInput.value.trim();
+          localStorage.setItem("cue-prompter:driveClientId", driveClientId);
+          driveTokenClient = null;
+          setDriveStatus("✓ 已儲存 Client ID", "ok");
+        });
+
+        function ensureGisLoaded(cb, retries) {
+          if (window.google && google.accounts && google.accounts.oauth2) { cb(); return; }
+          if (retries === undefined) retries = 15;
+          if (retries <= 0) { setDriveStatus("✗ Google 登入元件載入失敗,請檢查網路連線", "error"); return; }
+          setTimeout(function () { ensureGisLoaded(cb, retries - 1); }, 300);
+        }
+
+        function onDriveToken(resp) {
+          if (resp.error) { setDriveStatus("✗ 登入失敗:" + resp.error, "error"); return; }
+          driveAccessToken = resp.access_token;
+          setDriveStatus("✓ 已登入 Google", "ok");
+          driveSignInBtn.textContent = "重新登入";
+          driveSignOutBtn.disabled = false;
+          driveSaveBtn.disabled = false;
+          driveListBtn.disabled = false;
+        }
+
+        driveSignInBtn.addEventListener("click", function () {
+          if (!driveClientId) { setDriveStatus("✗ 請先貼上並儲存 Client ID", "error"); return; }
+          setDriveStatus("正在載入 Google 登入元件…");
+          ensureGisLoaded(function () {
+            if (!driveTokenClient) {
+              driveTokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: driveClientId,
+                scope: DRIVE_SCOPE,
+                callback: onDriveToken,
+              });
+            }
+            driveTokenClient.requestAccessToken({ prompt: driveAccessToken ? "" : "consent" });
+          });
+        });
+
+        driveSignOutBtn.addEventListener("click", function () {
+          if (driveAccessToken && window.google && google.accounts) {
+            google.accounts.oauth2.revoke(driveAccessToken, function () {});
+          }
+          driveAccessToken = null;
+          driveFolderId = null;
+          driveFileId = null;
+          driveSignOutBtn.disabled = true;
+          driveSaveBtn.disabled = true;
+          driveListBtn.disabled = true;
+          driveFilesEl.innerHTML = "";
+          setDriveStatus("已登出", "ok");
+        });
+
+        function driveFetch(url, opts) {
+          opts = opts || {};
+          opts.headers = Object.assign({ Authorization: "Bearer " + driveAccessToken }, opts.headers || {});
+          return fetch(url, opts).then(function (r) {
+            if (!r.ok) {
+              return r.text().then(function (t) { throw new Error("Drive API 錯誤 " + r.status + ": " + t.slice(0, 200)); });
+            }
+            return r;
+          });
+        }
+
+        function ensureDriveFolder() {
+          if (driveFolderId) return Promise.resolve(driveFolderId);
+          var q = encodeURIComponent("name='" + DRIVE_FOLDER_NAME + "' and mimeType='application/vnd.google-apps.folder' and trashed=false");
+          return driveFetch("https://www.googleapis.com/drive/v3/files?q=" + q + "&fields=files(id,name)")
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              if (data.files && data.files.length) { driveFolderId = data.files[0].id; return driveFolderId; }
+              return driveFetch("https://www.googleapis.com/drive/v3/files", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: DRIVE_FOLDER_NAME, mimeType: "application/vnd.google-apps.folder" }),
+              }).then(function (r) { return r.json(); }).then(function (folder) { driveFolderId = folder.id; return driveFolderId; });
+            });
+        }
+
+        function buildMultipart(metadata, contentStr) {
+          var boundary = "-------cueprompter" + Math.random().toString(16).slice(2);
+          var delimiter = "\r\n--" + boundary + "\r\n";
+          var closeDelim = "\r\n--" + boundary + "--";
+          var body = delimiter + "Content-Type: application/json; charset=UTF-8\r\n\r\n" + JSON.stringify(metadata) +
+            delimiter + "Content-Type: application/json\r\n\r\n" + contentStr + closeDelim;
+          return { body: body, boundary: boundary };
+        }
+
+        driveSaveBtn.addEventListener("click", function () {
+          readSettingsIntoScript();
+          sortCues();
+          setDriveStatus("正在儲存到雲端硬碟…");
+          driveSaveBtn.disabled = true;
+          ensureDriveFolder().then(function (folderId) {
+            var name = (script.name || "cue-script") + ".json";
+            var content = JSON.stringify(script, null, 2);
+            if (driveFileId && driveFileName === name) {
+              var mp = buildMultipart({ name: name }, content);
+              return driveFetch("https://www.googleapis.com/upload/drive/v3/files/" + driveFileId + "?uploadType=multipart", {
+                method: "PATCH",
+                headers: { "Content-Type": 'multipart/related; boundary="' + mp.boundary + '"' },
+                body: mp.body,
+              });
+            }
+            var mp2 = buildMultipart({ name: name, parents: [folderId] }, content);
+            return driveFetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
+              method: "POST",
+              headers: { "Content-Type": 'multipart/related; boundary="' + mp2.boundary + '"' },
+              body: mp2.body,
+            }).then(function (r) { return r.json(); }).then(function (file) { driveFileId = file.id; driveFileName = name; });
+          }).then(function () {
+            setDriveStatus("✓ 已儲存至雲端硬碟", "ok");
+          }).catch(function (err) {
+            setDriveStatus("✗ " + err.message, "error");
+          }).finally(function () {
+            driveSaveBtn.disabled = false;
+          });
+        });
+
+        driveListBtn.addEventListener("click", function () {
+          setDriveStatus("正在讀取雲端清單…");
+          driveFilesEl.innerHTML = "";
+          ensureDriveFolder().then(function (folderId) {
+            var q = encodeURIComponent("'" + folderId + "' in parents and trashed=false");
+            return driveFetch("https://www.googleapis.com/drive/v3/files?q=" + q + "&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc");
+          }).then(function (r) { return r.json(); }).then(function (data) {
+            var files = data.files || [];
+            if (!files.length) { setDriveStatus("雲端硬碟目前沒有已儲存的腳本", "ok"); return; }
+            files.forEach(function (f) {
+              var btn = document.createElement("button");
+              btn.type = "button";
+              btn.className = "drive-file-btn";
+              btn.textContent = f.name + "  (" + new Date(f.modifiedTime).toLocaleString() + ")";
+              btn.addEventListener("click", function () { loadFromDrive(f.id, f.name); });
+              driveFilesEl.appendChild(btn);
+            });
+            setDriveStatus("✓ 共 " + files.length + " 份腳本", "ok");
+          }).catch(function (err) {
+            setDriveStatus("✗ " + err.message, "error");
+          });
+        });
+
+        function loadFromDrive(fileId, name) {
+          setDriveStatus("正在載入「" + name + "」…");
+          driveFetch("https://www.googleapis.com/drive/v3/files/" + fileId + "?alt=media")
+            .then(function (r) { return r.json(); })
+            .then(function (obj) {
+              loadScriptObject(obj);
+              driveFileId = fileId;
+              driveFileName = name;
+              setDriveStatus("✓ 已載入「" + name + "」", "ok");
+            })
+            .catch(function (err) { setDriveStatus("✗ " + err.message, "error"); });
+        }
+
+        // ---------------- Init ----------------
+        applyScriptToUI();
+      })();
+    </script>
+  </body>
+</html>
