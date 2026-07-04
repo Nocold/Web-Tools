@@ -41,6 +41,14 @@ window.TOOLS = [
     keywords: ["countdown", "cue", "倒數", "提示音", "voice", "語音", "音樂", "intro"],
   },
   {
+    slug: "cue-prompter",
+    name: "演出提詞機 (v2)",
+    description: "類似歌詞提詞器的演出流程提詞工具,可選配倒數提示音與 Google 雲端硬碟存腳本",
+    icon: "🎬",
+    category: "影音",
+    keywords: ["提詞機", "腳本", "cue", "prompter", "teleprompter", "倒數", "google drive", "雲端硬碟", "演出", "彩排"],
+  },
+  {
     slug: "mp3-splitter",
     name: "MP3 切割",
     description: "擷取 MP3 片段(指定起點與長度)",
