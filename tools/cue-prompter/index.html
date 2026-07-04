@@ -121,15 +121,19 @@
 
         <details class="drive-box">
           <summary>☁️ Google 雲端硬碟(選用)</summary>
-          <div class="drive-hint">設定步驟(需你自行到 Google Cloud Console 建立,本工具不會替你建立或驗證):
+          <div class="drive-hint" id="driveHintDefault" hidden>本站已內建 Google 登入設定,可直接按下方「登入 Google」授權,腳本會存到你自己的 Google 雲端硬碟(僅能存取本工具建立的檔案)。</div>
+          <details class="drive-box" id="driveCustomClientBox">
+            <summary id="driveCustomClientSummary">自訂 Client ID</summary>
+            <div class="drive-hint">Google 規定 OAuth 用戶端必須綁定「已授權的網域」才能登入,無法做到完全免設定的萬用登入;若你是把這個工具另外架設在自己的網域(而不是本站內建的網域),需要自行到 Google Cloud Console 建立一組屬於你網域的 Client ID:
 1. 建立專案 → 「API 和服務」→「憑證」→ 建立「OAuth 用戶端 ID」,類型選「網頁應用程式」。
 2. 在「已授權的 JavaScript 來源」加入這個網站的網域(例如 https://your-user.github.io),不需要設定重新導向 URI。
 3. 到「OAuth 同意畫面」新增範圍 https://www.googleapis.com/auth/drive.file(僅能存取本工具自己建立的檔案,不會讀取你雲端硬碟其他檔案)。
 4. 把產生的 Client ID 貼到下方欄位並儲存,再按「登入 Google」。</div>
-          <div class="drive-row">
-            <input class="text-input" id="driveClientId" type="text" placeholder="貼上你的 Google OAuth Client ID" />
-            <button class="btn" id="saveClientId" type="button">儲存</button>
-          </div>
+            <div class="drive-row">
+              <input class="text-input" id="driveClientId" type="text" placeholder="貼上你的 Google OAuth Client ID" />
+              <button class="btn" id="saveClientId" type="button">儲存</button>
+            </div>
+          </details>
           <div class="toolbar">
             <button class="btn" id="driveSignIn" type="button">登入 Google</button>
             <button class="btn" id="driveSignOut" type="button" disabled>登出</button>
@@ -701,12 +705,19 @@
         // ---------------- Google Drive integration ----------------
         var DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
         var DRIVE_FOLDER_NAME = "WebTools-CuePrompter";
+        // 站長可在部署自己的網域後,到 Google Cloud Console 申請一組 OAuth Client ID(已授權網域填自己的網站網址),
+        // 貼在這裡即可讓所有訪客直接按「登入 Google」使用,不需要每個人自己申請、貼 Client ID。
+        var DEFAULT_DRIVE_CLIENT_ID = "";
         var driveClientIdInput = $("driveClientId"), driveStatus = $("driveStatus"),
           driveSignInBtn = $("driveSignIn"), driveSignOutBtn = $("driveSignOut"),
           driveSaveBtn = $("driveSave"), driveListBtn = $("driveList"), driveFilesEl = $("driveFiles");
-        var driveClientId = localStorage.getItem("cue-prompter:driveClientId") || "";
+        var driveClientId = localStorage.getItem("cue-prompter:driveClientId") || DEFAULT_DRIVE_CLIENT_ID;
         var driveTokenClient = null, driveAccessToken = null, driveFolderId = null, driveFileId = null, driveFileName = null;
-        driveClientIdInput.value = driveClientId;
+        driveClientIdInput.value = localStorage.getItem("cue-prompter:driveClientId") || "";
+        if (DEFAULT_DRIVE_CLIENT_ID) {
+          $("driveHintDefault").hidden = false;
+          $("driveCustomClientSummary").textContent = "自訂 Client ID(進階;自行架設本工具在其他網域時使用)";
+        }
 
         function setDriveStatus(msg, kind) {
           driveStatus.textContent = msg || "";
