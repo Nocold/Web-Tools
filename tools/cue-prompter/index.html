@@ -88,8 +88,10 @@
       .prompter-current { font-size: clamp(1.4rem, 5vw, 2.4rem); font-weight: 700; min-height: 1.4em; line-height: 1.3; }
       .prompter-current.empty { color: var(--text-muted); font-weight: 400; font-size: 1.2rem; }
       .prompter-remain { margin-top: 8px; font-size: 1.05rem; font-weight: 600; color: #f59e0b; min-height: 1.3em; }
-      .prompter-next { margin-top: 8px; font-size: 1rem; color: var(--accent); min-height: 1.4em; }
-      .prompter-next.imminent { font-weight: 700; font-size: 1.15rem; }
+      .prompter-next { margin-top: 8px; min-height: 1.4em; display: flex; flex-direction: column; gap: 3px; align-items: center; }
+      .prompter-next .pn-item { font-size: 0.9rem; color: var(--text-muted); font-family: var(--mono); }
+      .prompter-next .pn-first { font-size: 1rem; color: var(--accent); font-family: var(--sans); }
+      .prompter-next .pn-first.imminent { font-weight: 700; font-size: 1.15rem; }
 
       /* 頁面底部留白,內容不緊貼視窗底 */
       .tool-page { padding-bottom: 72px; }
@@ -757,16 +759,21 @@
             prompterRemain.textContent = "";
           }
 
-          // 下一組:一直顯示,並倒數距離開始的時間
-          var next = script.cues[idx + 1];
-          if (next) {
-            var toNext = Math.max(0, next.start - elapsed);
-            prompterNext.textContent = "接下來:" + (next.text || "(無內容)") + " · " + fmtTime(toNext) + " 後";
-            prompterNext.classList.toggle("imminent", toNext <= (script.preRoll || 0));
-          } else {
-            prompterNext.textContent = "";
-            prompterNext.classList.remove("imminent");
-          }
+          // 接下來:預覽下 3 組。第一筆帶倒數(接近時強調),後兩筆淡色列出時間+內容
+          prompterNext.innerHTML = "";
+          var upcoming = script.cues.slice(idx + 1, idx + 4);
+          upcoming.forEach(function (nc, i) {
+            var line = document.createElement("div");
+            line.className = "pn-item" + (i === 0 ? " pn-first" : "");
+            if (i === 0) {
+              var toNext = Math.max(0, nc.start - elapsed);
+              line.textContent = "接下來:" + (nc.text || "(無內容)") + " · " + fmtTime(toNext) + " 後";
+              if (toNext <= (script.preRoll || 0)) line.classList.add("imminent");
+            } else {
+              line.textContent = fmtTime(nc.start) + "　" + (nc.text || "(無內容)");
+            }
+            prompterNext.appendChild(line);
+          });
 
           if (seekRange && audioEl && !seekRange.matches(":active")) seekRange.value = elapsed;
 
