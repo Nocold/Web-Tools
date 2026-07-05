@@ -1,0 +1,40 @@
+name: Deploy to GitHub Pages
+
+# push 到 main 就自動部署。部署時把 assets/js/version.js 裡的 __COMMIT_HASH__
+# 換成當次 commit 的 short hash,頁尾即可顯示「當下服務中的內容」的版本。
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時只跑一個部署;不取消進行中的,讓每次部署都跑完
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stamp commit hash into version.js
+        run: sed -i "s/__COMMIT_HASH__/${GITHUB_SHA:0:7}/g" assets/js/version.js
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
