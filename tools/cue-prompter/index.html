@@ -148,6 +148,16 @@
         </div>
 
         <div class="panel mode-panel show" id="panelEdit">
+          <div class="music-setup" style="margin-bottom:16px">
+            <label class="field-label">背景音樂(選用,會與腳本一起儲存到雲端)</label>
+            <div class="dropzone-mini" id="audioDropzone">
+              🎵 點擊選擇音樂檔或拖曳到此處 — 播放時自動同步提詞。不選擇則改用手動計時器,方便音樂由其他裝置播放時對拍
+            </div>
+            <input type="file" id="audioFile" accept="audio/*" hidden />
+            <div class="file-info hint" id="audioFileInfo" style="margin-top:8px"></div>
+            <button class="btn" id="audioRemove" type="button" hidden style="margin-top:8px">移除音樂</button>
+          </div>
+
           <div class="bulk-paste">
             <label class="field-label" for="bulkText">批次貼上(比照「開始-結束 內容」格式,每行一段,例如從排練截圖照打)</label>
             <textarea id="bulkText" placeholder="0:00-0:23 薰天使下懸停轉360、冷+檸公轉自轉&#10;0:33-1:05 湯+筑&#10;1:05-1:30 薰 solo"></textarea>
@@ -183,16 +193,6 @@
             </div>
           </div>
           <p class="note">每個段落可勾選「提示音」,播放到接近該段落開始時間前(依上方倒數秒數),會用語音倒數 5…1 提醒。第一段若在 0:00(或倒數秒數以內),按「開始」時會先做前置倒數再啟動。</p>
-
-          <div class="music-setup" style="margin-top:14px">
-            <label class="field-label">背景音樂(選用,會與腳本一起儲存到雲端)</label>
-            <div class="dropzone-mini" id="audioDropzone">
-              🎵 點擊選擇音樂檔或拖曳到此處 — 播放時自動同步提詞。不選擇則改用手動計時器,方便音樂由其他裝置播放時對拍
-            </div>
-            <input type="file" id="audioFile" accept="audio/*" hidden />
-            <div class="file-info hint" id="audioFileInfo" style="margin-top:8px"></div>
-            <button class="btn" id="audioRemove" type="button" hidden style="margin-top:8px">移除音樂</button>
-          </div>
         </div>
 
         <div class="mode-panel" id="panelPlay">
