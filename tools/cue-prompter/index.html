@@ -159,7 +159,7 @@
           <button class="btn" id="managerRefresh" type="button">🔄 重新整理</button>
           <button class="btn" id="managerSignOut" type="button">登出</button>
         </div>
-        <p class="hint" style="margin:0 0 6px">每份腳本可從下方清單「⬇」下載 JSON 備份。</p>
+        <p class="hint" style="margin:0 0 6px">每份腳本可從下方清單「⬇」下載 JSON 備份;有背景音樂的腳本會多一顆「🎵」可另外下載音樂檔(檔名對齊腳本名,方便配對)。</p>
         <div class="status" id="managerStatus"></div>
         <div class="drive-files" id="managerFiles"></div>
       </div>
@@ -1245,6 +1245,21 @@
               setManagerStatus("✓ 已下載備份:" + base, "ok");
             })
             .catch(function (err) { if (isAuthErr(err)) { reauth(); return; } setManagerStatus("✗ " + err.message, "error"); });
+        }
+
+        // 下載某份腳本綁定的音樂檔(管理頁每列的「🎵」)。檔名對齊腳本名,方便還原時配對。
+        function downloadDriveAudio(scriptFileName, audioMeta) {
+          var scriptBase = scriptFileName.replace(/\.json$/i, "");
+          var extMatch = (audioMeta.name || "").match(/\.[a-z0-9]+$/i);
+          var ext = extMatch ? extMatch[0] : "";
+          setManagerStatus("正在下載音樂「" + (audioMeta.name || scriptBase) + "」…");
+          driveFetch("https://www.googleapis.com/drive/v3/files/" + audioMeta.driveFileId + "?alt=media")
+            .then(function (r) { return r.blob(); })
+            .then(function (blob) {
+              downloadBlob(blob, scriptBase + ext);
+              setManagerStatus("✓ 已下載音樂:" + scriptBase + ext, "ok");
+            })
+            .catch(function (err) { if (isAuthErr(err)) { reauth(); return; } setManagerStatus("✗ 音樂下載失敗:" + err.message, "error"); });
         }
 
         // 從本機 JSON 備份還原成一份新腳本(管理頁「⬆ 從備份還原」)
