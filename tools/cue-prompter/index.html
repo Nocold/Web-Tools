@@ -82,12 +82,14 @@
       .dropzone-mini:hover { border-color: var(--accent); color: var(--text); }
 
       .prompter { text-align: center; padding: 28px 12px; background: var(--surface-2); border-radius: var(--radius); border: 1px solid var(--border); }
-      /* 時間顯示疊在播放條內置中;mix-blend-mode 讓字在已填/未填區都清楚 */
+      /* 時間顯示疊在播放條內置中,分色裁切:填色(藍)上用白字、未填(灰)上用深字,
+         在填色邊界剛好切開,兩側都高對比清楚 */
       .prompter-time {
         position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-        font-family: var(--mono); font-size: 0.95rem; font-weight: 700;
-        color: #fff; mix-blend-mode: difference; pointer-events: none;
+        font-family: var(--mono); font-size: 0.95rem; font-weight: 700; pointer-events: none;
       }
+      .pt-under { color: var(--text); z-index: 1; }
+      .pt-over { color: #fff; z-index: 3; clip-path: inset(0 100% 0 0); }
       .prompter-current { font-size: clamp(1.4rem, 5vw, 2.4rem); font-weight: 700; min-height: 1.4em; line-height: 1.3; }
       .prompter-current.empty { color: var(--text-muted); font-weight: 400; font-size: 1.2rem; }
       .prompter-remain { margin-top: 8px; font-size: 1.05rem; font-weight: 600; color: #f59e0b; min-height: 1.3em; }
@@ -100,7 +102,7 @@
       .tool-page { padding-bottom: 72px; }
 
       .progress-track { position: relative; height: 30px; border-radius: 999px; background: var(--surface-2); overflow: hidden; border: 1px solid var(--border); margin-top: 20px; }
-      .progress-bar { position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: var(--accent); transition: width 0.15s linear; }
+      .progress-bar { position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: var(--accent); transition: width 0.15s linear; z-index: 2; }
 
       .play-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 18px; }
       .play-controls input[type="range"] { flex: 1 1 160px; }
@@ -245,8 +247,9 @@
             <div class="prompter-remain" id="prompterRemain"></div>
             <div class="prompter-next" id="prompterNext"></div>
             <div class="progress-track">
+              <div class="prompter-time pt-under" id="ptUnder">00:00 / --:--</div>
               <div class="progress-bar" id="progressBar"></div>
-              <div class="prompter-time" id="prompterTime">00:00 / --:--</div>
+              <div class="prompter-time pt-over" id="ptOver">00:00 / --:--</div>
             </div>
           </div>
 
@@ -603,7 +606,7 @@
         var audioEl = null, audioFile = null, manualRunning = false, manualAccum = 0, manualStart = 0;
         var audioDirty = false, currentAudioName = "", audioFromCloud = false;
         var lastElapsed = -1, rafId = null, currentCueIdx = -1;
-        var prompterTime = $("prompterTime"), prompterCurrent = $("prompterCurrent"), prompterNext = $("prompterNext"),
+        var ptUnder = $("ptUnder"), ptOver = $("ptOver"), prompterCurrent = $("prompterCurrent"), prompterNext = $("prompterNext"),
           prompterRemain = $("prompterRemain"),
           progressBar = $("progressBar"), playPauseBtn = $("playPauseBtn"), resetBtn = $("resetBtn"),
           seekRange = $("seekRange"), voiceEnabledChk = $("voiceEnabled"), cueListViewEl = $("cueListView"),
@@ -739,8 +742,12 @@
 
         function updateDisplay() {
           var elapsed = getElapsed();
-          prompterTime.textContent = fmtTime(elapsed) + " / " + fmtTime(totalDuration);
-          if (totalDuration) progressBar.style.width = Math.min(100, (elapsed / totalDuration) * 100) + "%";
+          var timeText = fmtTime(elapsed) + " / " + fmtTime(totalDuration);
+          ptUnder.textContent = timeText;
+          ptOver.textContent = timeText;
+          var pct = totalDuration ? Math.min(100, (elapsed / totalDuration) * 100) : 0;
+          progressBar.style.width = pct + "%";
+          ptOver.style.clipPath = "inset(0 " + (100 - pct) + "% 0 0)"; // 白字只顯示在已填(藍)區
 
           var idx = findCurrentCueIndex(elapsed);
           if (idx !== currentCueIdx) {
