@@ -22,6 +22,11 @@
       .script-name-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
       .script-name-row input { flex: 1 1 220px; }
 
+      /* 編輯頁上方工具列:返回 + 腳本名稱 + 儲存 + 分頁 併成一列 */
+      .editor-topbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+      .editor-topbar .script-name-input { flex: 1 1 200px; min-width: 0; }
+      .editor-topbar .mode-tabs { margin: 0; }
+
       #viewLogin { text-align: center; padding: 40px 24px; }
       #viewLogin p { max-width: 480px; margin: 12px auto 20px; }
 
@@ -116,35 +121,29 @@
         <label class="field-label" style="margin:0 0 4px">我的腳本</label>
         <div class="toolbar">
           <button class="btn primary" id="managerNewScript" type="button">🆕 新增腳本</button>
+          <button class="btn" id="managerImport" type="button">⬆ 從備份還原</button>
+          <input type="file" id="loadLocalFile" accept="application/json,.json" hidden />
           <button class="btn" id="managerRefresh" type="button">🔄 重新整理</button>
           <button class="btn" id="managerSignOut" type="button">登出</button>
         </div>
+        <p class="hint" style="margin:0 0 6px">每份腳本可從下方清單「⬇」下載 JSON 備份。</p>
         <div class="status" id="managerStatus"></div>
         <div class="drive-files" id="managerFiles"></div>
       </div>
 
       <div id="viewEditor" hidden>
         <div class="panel">
-          <div class="toolbar">
+          <div class="editor-topbar">
             <button class="btn" id="backToManager" type="button">← 返回腳本清單</button>
-          </div>
-          <div class="script-name-row">
-            <label class="field-label" for="scriptName" style="margin:0">腳本名稱</label>
-            <input class="text-input" id="scriptName" type="text" value="未命名腳本" />
-          </div>
-          <div class="toolbar">
+            <input class="text-input script-name-input" id="scriptName" type="text" value="未命名腳本" placeholder="腳本名稱" aria-label="腳本名稱" />
             <button class="btn primary" id="driveSave" type="button">💾 儲存</button>
-            <button class="btn" id="saveLocal" type="button">⬇ 下載備份(JSON)</button>
-            <button class="btn" id="loadLocalBtn" type="button">⬆ 從本機檔案還原</button>
-            <input type="file" id="loadLocalFile" accept="application/json,.json" hidden />
+            <div class="mode-tabs">
+              <button class="mode-tab active" id="tabEdit" type="button">📝 腳本編輯</button>
+              <button class="mode-tab" id="tabPlay" type="button">▶️ 提詞播放</button>
+            </div>
           </div>
           <div class="status" id="scriptStatus"></div>
           <div class="status" id="driveStatus"></div>
-        </div>
-
-        <div class="mode-tabs">
-          <button class="mode-tab active" id="tabEdit" type="button">📝 腳本編輯</button>
-          <button class="mode-tab" id="tabPlay" type="button">▶️ 提詞播放</button>
         </div>
 
         <div class="panel mode-panel show" id="panelEdit">
@@ -460,37 +459,18 @@
           renderCueListView();
         }
 
-        $("saveLocal").addEventListener("click", function () {
-          readSettingsIntoScript();
-          var blob = new Blob([JSON.stringify(script, null, 2)], { type: "application/json" });
+        // 下載/還原備份已移到「腳本清單(管理頁)」那一層,見 Google Drive 區塊。
+        function downloadJson(obj, filename) {
+          var blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
           var url = URL.createObjectURL(blob);
           var a = document.createElement("a");
           a.href = url;
-          a.download = (script.name || "cue-script") + ".json";
+          a.download = filename;
           document.body.appendChild(a);
           a.click();
           a.remove();
           setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
-          setScriptStatus("✓ 已下載 " + a.download, "ok");
-        });
-
-        $("loadLocalBtn").addEventListener("click", function () { $("loadLocalFile").click(); });
-        $("loadLocalFile").addEventListener("change", function () {
-          var file = $("loadLocalFile").files && $("loadLocalFile").files[0];
-          if (!file) return;
-          var reader = new FileReader();
-          reader.onload = function () {
-            try {
-              var obj = JSON.parse(reader.result);
-              loadScriptObject(obj);
-              setScriptStatus("✓ 已載入 " + file.name, "ok");
-            } catch (err) {
-              setScriptStatus("✗ 讀取失敗:" + err.message, "error");
-            }
-          };
-          reader.readAsText(file);
-          $("loadLocalFile").value = "";
-        });
+        }
 
         function loadScriptObject(obj) {
           clearAudio();
@@ -1078,6 +1058,13 @@
               btn.textContent = f.name.replace(/\.json$/i, "") + "  ·  " + new Date(f.modifiedTime).toLocaleString();
               btn.addEventListener("click", function () { openDriveFile(f.id, f.name); });
 
+              var dlBtn = document.createElement("button");
+              dlBtn.type = "button";
+              dlBtn.className = "mini-btn";
+              dlBtn.title = "下載 JSON 備份";
+              dlBtn.textContent = "⬇";
+              dlBtn.addEventListener("click", function () { downloadDriveFile(f.id, f.name); });
+
               var rmBtn = document.createElement("button");
               rmBtn.type = "button";
               rmBtn.className = "mini-btn rm";
@@ -1087,10 +1074,11 @@
                 if (!confirm("確定要刪除腳本「" + f.name.replace(/\.json$/i, "") + "」嗎?此動作無法復原。")) return;
                 driveFetch("https://www.googleapis.com/drive/v3/files/" + f.id, { method: "DELETE" })
                   .then(function () { setManagerStatus("✓ 已刪除", "ok"); refreshManagerList(); })
-                  .catch(function (err) { setManagerStatus("✗ " + err.message, "error"); });
+                  .catch(function (err) { if (isAuthErr(err)) { reauth(); return; } setManagerStatus("✗ " + err.message, "error"); });
               });
 
               row.appendChild(btn);
+              row.appendChild(dlBtn);
               row.appendChild(rmBtn);
               managerFilesEl.appendChild(row);
             });
@@ -1112,8 +1100,41 @@
               setDriveStatus("");
               showView("editor");
             })
-            .catch(function (err) { setManagerStatus("✗ " + err.message, "error"); });
+            .catch(function (err) { if (isAuthErr(err)) { reauth(); return; } setManagerStatus("✗ " + err.message, "error"); });
         }
+
+        // 下載某份雲端腳本為 JSON 備份(管理頁每列的「⬇」)
+        function downloadDriveFile(fileId, name) {
+          var base = name.replace(/\.json$/i, "");
+          setManagerStatus("正在下載「" + base + "」…");
+          driveFetch("https://www.googleapis.com/drive/v3/files/" + fileId + "?alt=media")
+            .then(function (r) { return r.json(); })
+            .then(function (obj) {
+              downloadJson(obj, (obj.name || base || "cue-script") + ".json");
+              setManagerStatus("✓ 已下載備份:" + base, "ok");
+            })
+            .catch(function (err) { if (isAuthErr(err)) { reauth(); return; } setManagerStatus("✗ " + err.message, "error"); });
+        }
+
+        // 從本機 JSON 備份還原成一份新腳本(管理頁「⬆ 從備份還原」)
+        $("managerImport").addEventListener("click", function () { $("loadLocalFile").click(); });
+        $("loadLocalFile").addEventListener("change", function () {
+          var file = this.files && this.files[0];
+          if (!file) { return; }
+          var reader = new FileReader();
+          reader.onload = function () {
+            try {
+              var obj = JSON.parse(reader.result);
+              loadScriptObject(obj); // driveFileId 會設為 null,成為尚未存雲端的新腳本
+              showView("editor");
+              setDriveStatus("✓ 已從備份「" + file.name + "」還原,尚未存到雲端,請按「儲存」", "ok");
+            } catch (err) {
+              setManagerStatus("✗ 讀取失敗:" + err.message, "error");
+            }
+          };
+          reader.readAsText(file);
+          this.value = "";
+        });
 
         managerNewBtn.addEventListener("click", function () {
           script = defaultScript();
