@@ -9,13 +9,15 @@
     <link rel="icon" type="image/png" sizes="32x32" href="../../assets/favicon-32.png" />
     <link rel="apple-touch-icon" href="../../assets/apple-touch-icon.png" />
     <style>
-      .mode-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+      /* 底線頁籤:選中的分頁字體變色 + 底線,無背景填色 */
+      .mode-tabs { display: flex; gap: 24px; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
       .mode-tab {
-        font-family: var(--sans); font-size: 0.9rem; font-weight: 600; padding: 9px 16px;
-        border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2);
-        color: var(--text-muted); cursor: pointer;
+        font-family: var(--sans); font-size: 0.92rem; font-weight: 600; padding: 10px 2px;
+        border: none; background: none; color: var(--text-muted); cursor: pointer;
+        border-bottom: 2px solid transparent; margin-bottom: -1px;
       }
-      .mode-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+      .mode-tab:hover { color: var(--text); }
+      .mode-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
       .mode-panel { display: none; }
       .mode-panel.show { display: block; }
 
@@ -24,8 +26,8 @@
 
       /* 編輯頁頂層列:分頁(左)+ 返回腳本清單(右),在標題卡片之上 */
       .editor-nav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-      .editor-nav .mode-tabs { margin: 0; }
-      .editor-nav .back-btn { margin-left: auto; }
+      .editor-nav .back-btn { margin: 0; }
+      .editor-nav .mode-tabs { margin: 0 0 0 auto; }
       /* 標題卡片:腳本名稱 + 儲存 */
       .editor-header { margin-bottom: 18px; }
       .editor-topbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -144,11 +146,11 @@
 
       <div id="viewEditor" hidden>
         <div class="editor-nav">
+          <button class="btn back-btn" id="backToManager" type="button">← 返回腳本清單</button>
           <div class="mode-tabs">
             <button class="mode-tab active" id="tabEdit" type="button">📝 腳本編輯</button>
             <button class="mode-tab" id="tabPlay" type="button">▶️ 提詞播放</button>
           </div>
-          <button class="btn back-btn" id="backToManager" type="button">← 返回腳本清單</button>
         </div>
 
         <div class="panel editor-header">
@@ -526,15 +528,23 @@
 
         // ---------------- Mode tabs ----------------
         var tabEdit = $("tabEdit"), tabPlay = $("tabPlay"), panelEdit = $("panelEdit"), panelPlay = $("panelPlay");
-        tabEdit.addEventListener("click", function () {
+        // 只有編輯模式能存檔;播放模式唯讀,隱藏儲存並鎖住腳本名稱
+        function setEditMode(editing) {
+          $("driveSave").hidden = !editing;
+          scriptNameInput.readOnly = !editing;
+        }
+        function activateEditTab() {
           tabEdit.classList.add("active"); tabPlay.classList.remove("active");
           panelEdit.classList.add("show"); panelPlay.classList.remove("show");
-        });
+          setEditMode(true);
+        }
+        tabEdit.addEventListener("click", activateEditTab);
         tabPlay.addEventListener("click", function () {
           readSettingsIntoScript();
           sortCues();
           tabPlay.classList.add("active"); tabEdit.classList.remove("active");
           panelPlay.classList.add("show"); panelEdit.classList.remove("show");
+          setEditMode(false);
           renderCueListView();
           updateTotalDuration();
         });
@@ -1124,6 +1134,7 @@
               driveFileName = name;
               setDriveStatus("");
               showView("editor");
+              activateEditTab();
             })
             .catch(function (err) { if (isAuthErr(err)) { reauth(); return; } setManagerStatus("✗ " + err.message, "error"); });
         }
@@ -1152,6 +1163,7 @@
               var obj = JSON.parse(reader.result);
               loadScriptObject(obj); // driveFileId 會設為 null,成為尚未存雲端的新腳本
               showView("editor");
+              activateEditTab();
               setDriveStatus("✓ 已從備份「" + file.name + "」還原,尚未存到雲端,請按「儲存」", "ok");
             } catch (err) {
               setManagerStatus("✗ 讀取失敗:" + err.message, "error");
@@ -1170,6 +1182,7 @@
           resetPlayback();
           setDriveStatus("");
           showView("editor");
+          activateEditTab();
         });
         managerRefreshBtn.addEventListener("click", refreshManagerList);
 
