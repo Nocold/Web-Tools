@@ -364,9 +364,11 @@
         // Real-world paste (排練截圖照打) rarely uses ASCII "-"; it's usually – (en) / — (em) /
         // full-width － or wave ～〜. Cover the whole hyphen/dash block so parsing never
         // silently fails on the separator character.
+        // 內容前用 \s*(而非 \s+):結束時間後可能沒空格就直接接內容,例如
+        // 「0:00–0:23(薰...)」,結束時間已被前面的 TIME 貪婪吃掉,不會誤吞內容。
         var DASH = "[-\\u2010-\\u2015\\u2212\\uFF0D~\\uFF5E\\u301C]";
         var TIME = "\\d{1,2}(?::\\d{1,2}){1,2}|\\d+(?:\\.\\d+)?";
-        var LINE_RE = new RegExp("^\\s*(" + TIME + ")\\s*(?:" + DASH + "|to)\\s*(" + TIME + ")?\\s+(.*)$");
+        var LINE_RE = new RegExp("^\\s*(" + TIME + ")\\s*(?:" + DASH + "|to)\\s*(" + TIME + ")?\\s*(.*)$");
         var LINE_RE_SINGLE = new RegExp("^\\s*(" + TIME + ")\\s+(.*)$");
 
         // Strip zero-width / BiDi / BOM chars that常隨貼上帶入(尤其貼上的第一行),
