@@ -182,17 +182,21 @@
               <span class="hint">播放時提前幾秒顯示下一段</span>
             </div>
           </div>
-          <p class="note">每個段落可勾選「提示音」,播放到接近該段落開始時間前(依上方倒數秒數),會用語音倒數 5…1 提醒。</p>
-        </div>
+          <p class="note">每個段落可勾選「提示音」,播放到接近該段落開始時間前(依上方倒數秒數),會用語音倒數 5…1 提醒。第一段若在 0:00(或倒數秒數以內),按「開始」時會先做前置倒數再啟動。</p>
 
-        <div class="mode-panel" id="panelPlay">
-          <div class="play-source">
+          <div class="music-setup" style="margin-top:14px">
+            <label class="field-label">背景音樂(選用,會與腳本一起儲存到雲端)</label>
             <div class="dropzone-mini" id="audioDropzone">
-              🎵 點擊選擇音樂檔(選用)或拖曳到此處 — 不選擇的話會改用手動計時器,方便音樂由其他裝置播放時同步提詞
+              🎵 點擊選擇音樂檔或拖曳到此處 — 播放時自動同步提詞。不選擇則改用手動計時器,方便音樂由其他裝置播放時對拍
             </div>
             <input type="file" id="audioFile" accept="audio/*" hidden />
             <div class="file-info hint" id="audioFileInfo" style="margin-top:8px"></div>
+            <button class="btn" id="audioRemove" type="button" hidden style="margin-top:8px">移除音樂</button>
           </div>
+        </div>
+
+        <div class="mode-panel" id="panelPlay">
+          <div class="file-info hint" id="playAudioInfo" style="margin-bottom:10px"></div>
 
           <div class="prompter">
             <div class="prompter-time" id="prompterTime">00:00 / --:--</div>
@@ -227,6 +231,7 @@
             preRoll: 5,
             countdownSeconds: 5,
             voiceVol: 120,
+            audio: null, // { driveFileId, name, mimeType } — 音樂檔存在同一個雲端資料夾,這裡只記參照
             cues: [],
           };
         }
@@ -488,12 +493,16 @@
         });
 
         function loadScriptObject(obj) {
+          clearAudio();
           script = {
             version: 1,
             name: obj.name || "未命名腳本",
             preRoll: obj.preRoll != null ? obj.preRoll : 5,
             countdownSeconds: obj.countdownSeconds != null ? obj.countdownSeconds : 5,
             voiceVol: obj.voiceVol != null ? obj.voiceVol : 120,
+            audio: (obj.audio && obj.audio.driveFileId)
+              ? { driveFileId: obj.audio.driveFileId, name: obj.audio.name || "音樂", mimeType: obj.audio.mimeType || "" }
+              : null,
             cues: Array.isArray(obj.cues) ? obj.cues.map(function (c) {
               return { start: Number(c.start) || 0, end: c.end != null ? Number(c.end) : null, text: c.text || "", voice: c.voice !== false };
             }) : [],
@@ -503,6 +512,7 @@
           driveFileName = null;
           applyScriptToUI();
           resetPlayback();
+          if (script.audio && script.audio.driveFileId && driveAccessToken) loadAudioFromDrive(script.audio);
         }
 
         [countdownSecondsInput, voiceVolInput, preRollInput, scriptNameInput].forEach(function (el) {
@@ -555,11 +565,13 @@
 
         // ---------------- Playback engine ----------------
         var audioEl = null, audioFile = null, manualRunning = false, manualAccum = 0, manualStart = 0;
+        var audioDirty = false, currentAudioName = "", audioFromCloud = false;
         var lastElapsed = -1, rafId = null, currentCueIdx = -1;
         var prompterTime = $("prompterTime"), prompterCurrent = $("prompterCurrent"), prompterNext = $("prompterNext"),
           progressBar = $("progressBar"), playBtn = $("playBtn"), pauseBtn = $("pauseBtn"), resetBtn = $("resetBtn"),
           seekRange = $("seekRange"), voiceEnabledChk = $("voiceEnabled"), cueListViewEl = $("cueListView"),
-          audioDropzone = $("audioDropzone"), audioFileInput = $("audioFile"), audioFileInfo = $("audioFileInfo");
+          audioDropzone = $("audioDropzone"), audioFileInput = $("audioFile"), audioFileInfo = $("audioFileInfo"),
+          audioRemoveBtn = $("audioRemove"), playAudioInfo = $("playAudioInfo");
 
         var totalDuration = null;
 
@@ -570,12 +582,22 @@
           totalDuration = script.cues.length ? max : null;
         }
 
-        function pickAudio(file) {
-          if (!file) return;
-          audioFile = file;
+        function updateAudioRemoveBtn() { audioRemoveBtn.hidden = !audioEl; }
+        function renderAudioInfo(loadingMsg) {
+          if (loadingMsg) { audioFileInfo.textContent = loadingMsg; }
+          else if (audioEl) { audioFileInfo.textContent = (audioFromCloud ? "☁ 雲端音樂:" : "已選擇:") + currentAudioName; }
+          else { audioFileInfo.textContent = ""; }
+          playAudioInfo.textContent = audioEl
+            ? ((audioFromCloud ? "☁ " : "🎵 ") + currentAudioName)
+            : "未選擇音樂 — 使用手動計時器,請與外部播放的音樂對拍";
+          updateAudioRemoveBtn();
+        }
+
+        // Build/replace the <audio> element from a File or Blob. `fromCloud` 只影響顯示文字。
+        function setAudioSource(src, name, fromCloud) {
           if (audioEl) { audioEl.pause(); audioEl.src = ""; }
           audioEl = new Audio();
-          audioEl.src = URL.createObjectURL(file);
+          audioEl.src = URL.createObjectURL(src);
           audioEl.addEventListener("loadedmetadata", function () {
             updateTotalDuration();
             seekRange.max = audioEl.duration;
@@ -584,12 +606,57 @@
           });
           audioEl.addEventListener("ended", function () { pausePlayback(); });
           audioEl.addEventListener("seeked", function () { lastElapsed = audioEl.currentTime; });
-          audioFileInfo.textContent = "已選擇:" + file.name;
+          currentAudioName = name;
+          audioFromCloud = !!fromCloud;
+          renderAudioInfo();
           resetPlayback();
         }
+
+        function clearAudio() {
+          if (audioEl) { audioEl.pause(); audioEl.src = ""; }
+          audioEl = null;
+          audioFile = null;
+          audioDirty = false;
+          currentAudioName = "";
+          audioFromCloud = false;
+          seekRange.style.display = "none";
+          seekRange.disabled = true;
+          seekRange.max = 0;
+          seekRange.value = 0;
+          renderAudioInfo();
+        }
+
+        function pickAudio(file) {
+          if (!file) return;
+          audioFile = file;
+          audioDirty = true; // 尚未上傳到雲端,存檔時才上傳
+          // 保留既有 driveFileId,以便存檔時覆蓋(PATCH)同一份而不留孤兒檔
+          script.audio = { driveFileId: (script.audio && script.audio.driveFileId) || null, name: file.name, mimeType: file.type || "" };
+          setAudioSource(file, file.name, false);
+        }
+
+        function loadAudioFromDrive(meta) {
+          renderAudioInfo("正在從雲端載入音樂「" + meta.name + "」…");
+          driveFetch("https://www.googleapis.com/drive/v3/files/" + meta.driveFileId + "?alt=media")
+            .then(function (r) { return r.blob(); })
+            .then(function (blob) {
+              audioFile = null;
+              audioDirty = false;
+              setAudioSource(blob, meta.name, true);
+            })
+            .catch(function (err) { renderAudioInfo("✗ 雲端音樂載入失敗:" + err.message); });
+        }
+
+        audioRemoveBtn.addEventListener("click", function () {
+          script.audio = null;
+          clearAudio();
+          updateTotalDuration();
+          updateDisplay();
+        });
         audioDropzone.addEventListener("click", function () { audioFileInput.click(); });
         audioFileInput.addEventListener("change", function () {
           if (audioFileInput.files && audioFileInput.files[0]) pickAudio(audioFileInput.files[0]);
+          audioFileInput.value = "";
         });
         ["dragenter", "dragover"].forEach(function (ev) {
           audioDropzone.addEventListener(ev, function (e) { e.preventDefault(); audioDropzone.style.borderColor = "var(--accent)"; });
@@ -688,8 +755,58 @@
           if (!rafId) rafId = requestAnimationFrame(tick);
         }
 
-        function startPlayback() {
-          if (getCtx().state === "suspended") getCtx().resume();
+        // ---- 前置倒數(lead-in):第一段在 0:00(或倒數秒數以內)時,提示音會落在
+        //      時間 0 之前而無法播出。按「開始」時先跑一段前置倒數,倒數歸零才啟動播放。
+        var leadInTimers = [], leadInActive = false;
+        function computeLeadIn() {
+          if (!voiceEnabledChk.checked) return null;
+          var L = script.countdownSeconds || 5;
+          var maxLead = 0, events = [], firstText = "";
+          script.cues.forEach(function (cue) {
+            if (!cue.voice || cue.start >= L) return; // start >= L 的段落,倒數落在 0 之後,交給正常引擎
+            for (var k = 1; k <= L; k++) {
+              var target = cue.start - k;
+              if (target < 0) { var lead = -target; if (lead > maxLead) maxLead = lead; events.push({ lead: lead, word: NUM[k] }); }
+            }
+          });
+          if (!events.length) return null;
+          var first = script.cues.filter(function (c) { return c.voice && c.start < L; })[0];
+          if (first) firstText = first.text || "";
+          return {
+            duration: maxLead,
+            firstText: firstText,
+            events: events.map(function (e) { return { at: maxLead - e.lead, word: e.word }; }),
+          };
+        }
+        function cancelLeadIn() {
+          leadInActive = false;
+          leadInTimers.forEach(function (t) { clearTimeout(t); });
+          leadInTimers = [];
+        }
+        function runLeadIn(plan, done) {
+          leadInActive = true;
+          playBtn.disabled = true;
+          pauseBtn.disabled = false;
+          prompterCurrent.classList.remove("empty");
+          prompterNext.textContent = plan.firstText ? "即將開始:" + plan.firstText : "";
+          plan.events.forEach(function (e) {
+            leadInTimers.push(setTimeout(function () { if (leadInActive) playClip(e.word); }, Math.round(e.at * 1000)));
+          });
+          var startT = Date.now();
+          (function upd() {
+            if (!leadInActive) return;
+            var remain = Math.max(0, plan.duration - (Date.now() - startT) / 1000);
+            prompterCurrent.textContent = "準備… " + Math.ceil(remain);
+            if (remain > 0) leadInTimers.push(setTimeout(upd, 100));
+          })();
+          leadInTimers.push(setTimeout(function () {
+            if (!leadInActive) return;
+            cancelLeadIn();
+            done();
+          }, Math.round(plan.duration * 1000)));
+        }
+
+        function beginPlayback() {
           if (audioEl) {
             audioEl.play();
           } else {
@@ -698,9 +815,26 @@
           }
           playBtn.disabled = true;
           pauseBtn.disabled = false;
+          updateDisplay(); // 立即顯示第一段,不等下一個 animation frame
           ensureTicking();
         }
+        function startPlayback() {
+          if (getCtx().state === "suspended") getCtx().resume();
+          // 只有從頭開始(elapsed≈0、非續播)才做前置倒數,避免暫停後續播又倒數一次
+          if (!leadInActive && !isRunning() && getElapsed() < 0.05) {
+            var plan = computeLeadIn();
+            if (plan) { runLeadIn(plan, beginPlayback); return; }
+          }
+          beginPlayback();
+        }
         function pausePlayback() {
+          if (leadInActive) {
+            cancelLeadIn();
+            playBtn.disabled = false;
+            pauseBtn.disabled = true;
+            updateDisplay();
+            return;
+          }
           if (audioEl) {
             audioEl.pause();
           } else if (manualRunning) {
@@ -846,6 +980,8 @@
           ensureDriveFolder().then(function (folderId) {
             return listDriveFiles(folderId);
           }).then(function (files) {
+            // 只列出腳本(.json);音樂檔存在同一資料夾但不該出現在腳本清單
+            files = files.filter(function (f) { return /\.json$/i.test(f.name); });
             if (!files.length) { setManagerStatus("目前沒有已儲存的腳本,按「新增腳本」開始建立。", "ok"); return; }
             files.forEach(function (f) {
               var row = document.createElement("div");
@@ -897,6 +1033,7 @@
           script = defaultScript();
           driveFileId = null;
           driveFileName = null;
+          clearAudio();
           applyScriptToUI();
           resetPlayback();
           setDriveStatus("");
@@ -935,15 +1072,59 @@
           }).then(function (r) { return r.json(); });
         }
 
+        // 把目前選的音樂檔上傳到同一個雲端資料夾(二進位 multipart);有既有 driveFileId 就覆蓋。
+        function uploadAudioToDrive(folderId) {
+          var file = audioFile;
+          var existingId = script.audio && script.audio.driveFileId;
+          var boundary = "-------cueaudio" + Math.random().toString(16).slice(2);
+          var meta = existingId ? { name: file.name } : { name: file.name, parents: [folderId] };
+          var pre = "--" + boundary + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" + JSON.stringify(meta) +
+            "\r\n--" + boundary + "\r\nContent-Type: " + (file.type || "application/octet-stream") + "\r\n\r\n";
+          var post = "\r\n--" + boundary + "--";
+          var body = new Blob([pre, file, post]);
+          var url = "https://www.googleapis.com/upload/drive/v3/files" + (existingId ? "/" + existingId : "") +
+            "?uploadType=multipart&fields=id,name";
+          return driveFetch(url, {
+            method: existingId ? "PATCH" : "POST",
+            headers: { "Content-Type": 'multipart/related; boundary="' + boundary + '"' },
+            body: body,
+          }).then(function (r) { return r.json(); }).then(function (f) {
+            script.audio = { driveFileId: f.id, name: file.name, mimeType: file.type || "" };
+            audioDirty = false;
+            audioFromCloud = true;
+            renderAudioInfo();
+            return f;
+          });
+        }
+
         driveSaveBtn.addEventListener("click", function () {
           readSettingsIntoScript();
           sortCues();
           var name = (script.name || "cue-script") + ".json";
-          var content = JSON.stringify(script, null, 2);
-          setDriveStatus("正在儲存到雲端硬碟…");
           driveSaveBtn.disabled = true;
           ensureDriveFolder().then(function (folderId) {
-            return listDriveFiles(folderId).then(function (files) {
+            // 先上傳(尚未上傳的)音樂,拿到 driveFileId 後才把腳本 JSON 序列化存檔
+            var pre;
+            if (audioDirty && audioFile) {
+              setDriveStatus("正在上傳音樂到雲端硬碟…");
+              pre = uploadAudioToDrive(folderId);
+            } else {
+              pre = Promise.resolve();
+            }
+            return pre.then(function () { return saveScriptJson(folderId, name); });
+          }).then(function () {
+            setDriveStatus("✓ 已儲存至雲端硬碟", "ok");
+          }).catch(function (err) {
+            setDriveStatus("✗ " + err.message, "error");
+          }).finally(function () {
+            driveSaveBtn.disabled = false;
+          });
+        });
+
+        function saveScriptJson(folderId, name) {
+          var content = JSON.stringify(script, null, 2);
+          setDriveStatus("正在儲存腳本到雲端硬碟…");
+          return listDriveFiles(folderId).then(function (files) {
               var conflict = files.filter(function (f) { return f.name === name && f.id !== driveFileId; })[0];
               var targetId = driveFileId;
               if (conflict) {
@@ -963,17 +1144,11 @@
                 driveFileName = name;
               });
             });
-          }).then(function () {
-            setDriveStatus("✓ 已儲存至雲端硬碟", "ok");
-          }).catch(function (err) {
-            setDriveStatus("✗ " + err.message, "error");
-          }).finally(function () {
-            driveSaveBtn.disabled = false;
-          });
-        });
+        }
 
         // ---------------- Init ----------------
         applyScriptToUI();
+        renderAudioInfo();
         showView("login");
       })();
     </script>
