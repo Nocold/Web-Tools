@@ -27,6 +27,13 @@
       .editor-topbar .script-name-input { flex: 1 1 200px; min-width: 0; }
       .editor-topbar .mode-tabs { margin: 0; }
 
+      /* 編輯頁切成多張區塊卡片,彼此留間距 */
+      .edit-block { margin-bottom: 16px; }
+      .edit-block:last-child { margin-bottom: 0; }
+      .block-title { margin: 0 0 14px; font-size: 1.02rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px; }
+      .edit-block .bulk-paste { margin-top: 0; }
+      .edit-block .settings { margin-top: 0; }
+
       #viewLogin { text-align: center; padding: 40px 24px; }
       #viewLogin p { max-width: 480px; margin: 12px auto 20px; }
 
@@ -146,52 +153,63 @@
           <div class="status" id="driveStatus"></div>
         </div>
 
-        <div class="panel mode-panel show" id="panelEdit">
-          <div class="music-setup" style="margin-bottom:16px">
-            <label class="field-label">背景音樂(選用,會與腳本一起儲存到雲端)</label>
-            <div class="dropzone-mini" id="audioDropzone">
-              🎵 點擊選擇音樂檔或拖曳到此處 — 播放時自動同步提詞。不選擇則改用手動計時器,方便音樂由其他裝置播放時對拍
+        <div class="mode-panel show" id="panelEdit">
+          <section class="panel edit-block">
+            <h3 class="block-title">🎵 背景音樂</h3>
+            <div class="music-setup">
+              <label class="field-label">選用,會與腳本一起儲存到雲端</label>
+              <div class="dropzone-mini" id="audioDropzone">
+                點擊選擇音樂檔或拖曳到此處 — 播放時自動同步提詞。不選擇則改用手動計時器,方便音樂由其他裝置播放時對拍
+              </div>
+              <input type="file" id="audioFile" accept="audio/*" hidden />
+              <div class="file-info hint" id="audioFileInfo" style="margin-top:8px"></div>
+              <button class="btn" id="audioRemove" type="button" hidden style="margin-top:8px">移除音樂</button>
             </div>
-            <input type="file" id="audioFile" accept="audio/*" hidden />
-            <div class="file-info hint" id="audioFileInfo" style="margin-top:8px"></div>
-            <button class="btn" id="audioRemove" type="button" hidden style="margin-top:8px">移除音樂</button>
-          </div>
+          </section>
 
-          <div class="bulk-paste">
-            <label class="field-label" for="bulkText">批次貼上(比照「開始-結束 內容」格式,每行一段,例如從排練截圖照打)</label>
-            <textarea id="bulkText" placeholder="0:00-0:23 薰天使下懸停轉360、冷+檸公轉自轉&#10;0:33-1:05 湯+筑&#10;1:05-1:30 薰 solo"></textarea>
+          <section class="panel edit-block">
+            <h3 class="block-title">📋 批次貼上</h3>
+            <div class="bulk-paste">
+              <label class="field-label" for="bulkText">比照「開始-結束 內容」格式,每行一段,例如從排練截圖照打</label>
+              <textarea id="bulkText" placeholder="0:00-0:23 薰天使下懸停轉360、冷+檸公轉自轉&#10;0:33-1:05 湯+筑&#10;1:05-1:30 薰 solo"></textarea>
+              <div class="toolbar">
+                <button class="btn" id="bulkParse" type="button">解析並加入段落</button>
+                <span class="hint">也支援只有單一時間點的格式,例如「1:30 冷+檸」</span>
+              </div>
+              <div class="status" id="bulkStatus" style="margin-top:8px"></div>
+            </div>
+          </section>
+
+          <section class="panel edit-block">
+            <h3 class="block-title">📝 段落列表</h3>
+            <div class="cue-list" id="cueList"></div>
             <div class="toolbar">
-              <button class="btn" id="bulkParse" type="button">解析並加入段落</button>
-              <span class="hint">也支援只有單一時間點的格式,例如「1:30 冷+檸」</span>
+              <button class="btn" id="addCue" type="button">＋ 新增段落</button>
+              <button class="btn" id="clearCues" type="button">清空全部段落</button>
             </div>
-            <div class="status" id="bulkStatus" style="margin-top:8px"></div>
-          </div>
+          </section>
 
-          <label class="field-label" style="margin-top:10px">段落列表</label>
-          <div class="cue-list" id="cueList"></div>
-          <div class="toolbar">
-            <button class="btn" id="addCue" type="button">＋ 新增段落</button>
-            <button class="btn" id="clearCues" type="button">清空全部段落</button>
-          </div>
-
-          <div class="settings">
-            <div class="opt">
-              <label class="field-label" for="countdownSeconds">倒數秒數</label>
-              <input class="text-input" id="countdownSeconds" type="number" min="1" max="10" step="1" value="5" />
-              <span class="hint">1–10</span>
+          <section class="panel edit-block">
+            <h3 class="block-title">⚙️ 播放設定</h3>
+            <div class="settings">
+              <div class="opt">
+                <label class="field-label" for="countdownSeconds">倒數秒數</label>
+                <input class="text-input" id="countdownSeconds" type="number" min="1" max="10" step="1" value="5" />
+                <span class="hint">1–10</span>
+              </div>
+              <div class="opt">
+                <label class="field-label" for="voiceVol">語音音量</label>
+                <input class="text-input" id="voiceVol" type="number" min="0" max="300" step="10" value="120" />
+                <span class="hint">%</span>
+              </div>
+              <div class="opt">
+                <label class="field-label" for="preRoll">預告提前秒數</label>
+                <input class="text-input" id="preRoll" type="number" min="0" max="30" step="1" value="5" />
+                <span class="hint">播放時提前幾秒顯示下一段</span>
+              </div>
             </div>
-            <div class="opt">
-              <label class="field-label" for="voiceVol">語音音量</label>
-              <input class="text-input" id="voiceVol" type="number" min="0" max="300" step="10" value="120" />
-              <span class="hint">%</span>
-            </div>
-            <div class="opt">
-              <label class="field-label" for="preRoll">預告提前秒數</label>
-              <input class="text-input" id="preRoll" type="number" min="0" max="30" step="1" value="5" />
-              <span class="hint">播放時提前幾秒顯示下一段</span>
-            </div>
-          </div>
-          <p class="note">每個段落可勾選「提示音」,播放到接近該段落開始時間前(依上方倒數秒數),會用語音倒數 5…1 提醒。第一段若在 0:00(或倒數秒數以內),按「開始」時會先做前置倒數再啟動。</p>
+            <p class="note">每個段落可勾選「提示音」,播放到接近該段落開始時間前(依上方倒數秒數),會用語音倒數 5…1 提醒。第一段若在 0:00(或倒數秒數以內),按「開始」時會先做前置倒數再啟動。</p>
+          </section>
         </div>
 
         <div class="mode-panel" id="panelPlay">
