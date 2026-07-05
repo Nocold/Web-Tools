@@ -22,11 +22,14 @@
       .script-name-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
       .script-name-row input { flex: 1 1 220px; }
 
-      /* 編輯頁上方工具列:返回 + 腳本名稱 + 儲存 一列;分頁另起一列 */
+      /* 編輯頁頂層列:分頁(左)+ 返回腳本清單(右),在標題卡片之上 */
+      .editor-nav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+      .editor-nav .mode-tabs { margin: 0; }
+      .editor-nav .back-btn { margin-left: auto; }
+      /* 標題卡片:腳本名稱 + 儲存 */
       .editor-header { margin-bottom: 18px; }
       .editor-topbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
       .editor-topbar .script-name-input { flex: 1 1 200px; min-width: 0; }
-      .editor-tabs { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--border); }
 
       /* 編輯頁切成多張區塊卡片,彼此留間距 */
       .edit-block { margin-bottom: 16px; }
@@ -140,15 +143,18 @@
       </div>
 
       <div id="viewEditor" hidden>
-        <div class="panel editor-header">
-          <div class="editor-topbar">
-            <button class="btn" id="backToManager" type="button">← 返回腳本清單</button>
-            <input class="text-input script-name-input" id="scriptName" type="text" value="未命名腳本" placeholder="腳本名稱" aria-label="腳本名稱" />
-            <button class="btn primary" id="driveSave" type="button">💾 儲存</button>
-          </div>
-          <div class="mode-tabs editor-tabs">
+        <div class="editor-nav">
+          <div class="mode-tabs">
             <button class="mode-tab active" id="tabEdit" type="button">📝 腳本編輯</button>
             <button class="mode-tab" id="tabPlay" type="button">▶️ 提詞播放</button>
+          </div>
+          <button class="btn back-btn" id="backToManager" type="button">← 返回腳本清單</button>
+        </div>
+
+        <div class="panel editor-header">
+          <div class="editor-topbar">
+            <input class="text-input script-name-input" id="scriptName" type="text" value="未命名腳本" placeholder="腳本名稱" aria-label="腳本名稱" />
+            <button class="btn primary" id="driveSave" type="button">💾 儲存</button>
           </div>
           <div class="status" id="scriptStatus"></div>
           <div class="status" id="driveStatus"></div>
