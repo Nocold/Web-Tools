@@ -876,6 +876,33 @@
         var driveStatus = $("driveStatus"), driveSaveBtn = $("driveSave");
 
         var driveTokenClient = null, driveAccessToken = null, driveFolderId = null, driveFileId = null, driveFileName = null;
+        var silentAttempt = false, silentTimer = null;
+
+        // ---- 記住登入狀態 ----
+        // access token 存在 localStorage(含到期時間),重開頁面在有效期內直接沿用,免重登。
+        // scope 僅 drive.file(只能存取本工具建立的檔案),token 存本機、僅一小時有效。
+        var DRIVE_TOKEN_KEY = "cuePrompterDriveToken";
+        var DRIVE_LOGGEDIN_KEY = "cuePrompterLoggedIn";
+        function storeToken(resp) {
+          try {
+            var ttl = (Number(resp.expires_in) || 3600) - 60; // 留 60 秒緩衝
+            localStorage.setItem(DRIVE_TOKEN_KEY, JSON.stringify({ token: resp.access_token, expiry: Date.now() + ttl * 1000 }));
+            localStorage.setItem(DRIVE_LOGGEDIN_KEY, "1");
+          } catch (e) {}
+        }
+        function loadStoredToken() {
+          try {
+            var o = JSON.parse(localStorage.getItem(DRIVE_TOKEN_KEY) || "null");
+            if (o && o.token && o.expiry && o.expiry > Date.now()) return o;
+          } catch (e) {}
+          return null;
+        }
+        function clearStoredToken() {
+          try { localStorage.removeItem(DRIVE_TOKEN_KEY); } catch (e) {}
+        }
+        function isAuthErr(err) {
+          return !!err && /(^|\D)401(\D|$)/.test(err.message || "");
+        }
 
         function showView(name) {
           viewLogin.hidden = name !== "login";
@@ -904,11 +931,74 @@
         }
 
         function onDriveToken(resp) {
-          if (resp.error) { setLoginStatus("✗ 登入失敗:" + resp.error, "error"); return; }
+          clearTimeout(silentTimer);
+          if (resp.error) {
+            // 靜默(自動)登入失敗時不驚動使用者,安靜地退回登入畫面
+            if (silentAttempt) { silentAttempt = false; setLoginStatus(""); showView("login"); return; }
+            setLoginStatus("✗ 登入失敗:" + resp.error, "error");
+            return;
+          }
+          silentAttempt = false;
           driveAccessToken = resp.access_token;
+          storeToken(resp);
           setLoginStatus("");
           showView("manager");
           refreshManagerList();
+        }
+
+        function ensureTokenClient() {
+          if (!driveTokenClient) {
+            driveTokenClient = google.accounts.oauth2.initTokenClient({
+              client_id: DRIVE_CLIENT_ID,
+              scope: DRIVE_SCOPE,
+              callback: onDriveToken,
+            });
+          }
+          return driveTokenClient;
+        }
+
+        // 重開頁面時的自動登入:有效 token 直接沿用;過期但登入過就試著靜默重新授權。
+        function tryAutoLogin() {
+          var stored = loadStoredToken();
+          if (stored) {
+            driveAccessToken = stored.token;
+            showView("manager");
+            refreshManagerList();
+            return;
+          }
+          if (!DRIVE_CLIENT_ID || localStorage.getItem(DRIVE_LOGGEDIN_KEY) !== "1") {
+            showView("login");
+            return;
+          }
+          // 過期了但先前登入過:試著靜默重新授權(不需點按)。已登入 Google 且授權過的
+          // 情況通常會用隱藏 iframe 直接拿到 token;若被瀏覽器擋下就退回登入按鈕。
+          showView("login");
+          setLoginStatus("正在嘗試自動登入…");
+          ensureGisLoaded(function () {
+            silentAttempt = true;
+            clearTimeout(silentTimer);
+            silentTimer = setTimeout(function () {
+              if (!silentAttempt) return; // 靜默請求未回呼(常見於彈窗被擋),放棄並顯示登入按鈕
+              silentAttempt = false;
+              setLoginStatus("");
+              showView("login");
+            }, 4000);
+            try {
+              ensureTokenClient().requestAccessToken({ prompt: "" });
+            } catch (e) {
+              clearTimeout(silentTimer);
+              silentAttempt = false;
+              setLoginStatus("");
+              showView("login");
+            }
+          });
+        }
+
+        // token 失效(401)時重新授權
+        function reauth() {
+          clearStoredToken();
+          driveAccessToken = null;
+          tryAutoLogin();
         }
 
         loginBtn.addEventListener("click", function () {
@@ -916,14 +1006,7 @@
           setLoginStatus("正在載入 Google 登入元件…");
           ensureGisLoaded(function () {
             setLoginStatus("");
-            if (!driveTokenClient) {
-              driveTokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: DRIVE_CLIENT_ID,
-                scope: DRIVE_SCOPE,
-                callback: onDriveToken,
-              });
-            }
-            driveTokenClient.requestAccessToken({ prompt: driveAccessToken ? "" : "consent" });
+            ensureTokenClient().requestAccessToken({ prompt: driveAccessToken ? "" : "consent" });
           });
         });
 
@@ -931,6 +1014,8 @@
           if (driveAccessToken && window.google && google.accounts) {
             google.accounts.oauth2.revoke(driveAccessToken, function () {});
           }
+          clearStoredToken();
+          try { localStorage.removeItem(DRIVE_LOGGEDIN_KEY); } catch (e) {}
           driveAccessToken = null;
           driveFolderId = null;
           driveFileId = null;
@@ -1011,6 +1096,7 @@
             });
             setManagerStatus("共 " + files.length + " 份腳本", "ok");
           }).catch(function (err) {
+            if (isAuthErr(err)) { setLoginStatus("登入已過期,請重新登入", "error"); reauth(); return; }
             setManagerStatus("✗ " + err.message, "error");
           });
         }
@@ -1149,7 +1235,7 @@
         // ---------------- Init ----------------
         applyScriptToUI();
         renderAudioInfo();
-        showView("login");
+        tryAutoLogin();
       })();
     </script>
   </body>
