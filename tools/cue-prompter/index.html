@@ -22,14 +22,13 @@
       .script-name-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
       .script-name-row input { flex: 1 1 220px; }
 
-      details.drive-box { margin-top: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 14px; background: var(--surface-2); }
-      details.drive-box summary { cursor: pointer; padding: 10px 0; font-weight: 600; }
-      .drive-hint { font-size: 0.8rem; color: var(--text-muted); line-height: 1.7; margin: 6px 0 14px; white-space: pre-line; }
-      .drive-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
-      .drive-row input { flex: 1 1 220px; }
+      #viewLogin { text-align: center; padding: 40px 24px; }
+      #viewLogin p { max-width: 480px; margin: 12px auto 20px; }
+
       .drive-files { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 16px; }
+      .drive-file-row { display: flex; gap: 6px; align-items: center; }
       .drive-file-btn {
-        text-align: left; font-family: var(--mono); font-size: 0.85rem; padding: 8px 10px;
+        flex: 1 1 auto; text-align: left; font-family: var(--mono); font-size: 0.85rem; padding: 8px 10px;
         border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface);
         color: var(--text); cursor: pointer;
       }
@@ -103,115 +102,114 @@
       <p class="subtitle">
         類似歌詞提詞器的演出流程小工具:先把流程腳本(時間點 + 段落內容)編輯好,
         播放時會用大字顯示目前段落、提前顯示下一段「預告」,並可選擇在段落開始前播放倒數提示音。
-        腳本可存成本機檔案,也可選配登入 Google 雲端硬碟存取。
+        腳本一律儲存在你自己的 Google 雲端硬碟,因此需要先登入 Google 才能建立、開啟或播放腳本。
       </p>
 
-      <div class="panel">
-        <div class="script-name-row">
-          <label class="field-label" for="scriptName" style="margin:0">腳本名稱</label>
-          <input class="text-input" id="scriptName" type="text" value="未命名腳本" />
-        </div>
-        <div class="toolbar">
-          <button class="btn" id="newScript" type="button">🆕 新腳本</button>
-          <button class="btn" id="saveLocal" type="button">⬇ 下載腳本(JSON)</button>
-          <button class="btn" id="loadLocalBtn" type="button">⬆ 開啟本機腳本</button>
-          <input type="file" id="loadLocalFile" accept="application/json,.json" hidden />
-        </div>
-        <div class="status" id="scriptStatus"></div>
+      <div class="panel" id="viewLogin">
+        <h2 style="margin-top:0">🔒 需要登入 Google</h2>
+        <p class="hint">腳本會存放在你自己的 Google 雲端硬碟裡(僅能存取本工具建立的檔案,不會讀取雲端硬碟其他資料),登入後即可建立、開啟與管理腳本。</p>
+        <button class="btn primary" id="loginBtn" type="button">登入 Google</button>
+        <div class="status" id="loginStatus"></div>
+      </div>
 
-        <details class="drive-box">
-          <summary>☁️ Google 雲端硬碟(選用)</summary>
-          <div class="drive-hint" id="driveHintDefault" hidden>本站已內建 Google 登入設定,可直接按下方「登入 Google」授權,腳本會存到你自己的 Google 雲端硬碟(僅能存取本工具建立的檔案)。</div>
-          <details class="drive-box" id="driveCustomClientBox">
-            <summary id="driveCustomClientSummary">自訂 Client ID</summary>
-            <div class="drive-hint">Google 規定 OAuth 用戶端必須綁定「已授權的網域」才能登入,無法做到完全免設定的萬用登入;若你是把這個工具另外架設在自己的網域(而不是本站內建的網域),需要自行到 Google Cloud Console 建立一組屬於你網域的 Client ID:
-1. 建立專案 → 「API 和服務」→「憑證」→ 建立「OAuth 用戶端 ID」,類型選「網頁應用程式」。
-2. 在「已授權的 JavaScript 來源」加入這個網站的網域(例如 https://your-user.github.io),不需要設定重新導向 URI。
-3. 到「OAuth 同意畫面」新增範圍 https://www.googleapis.com/auth/drive.file(僅能存取本工具自己建立的檔案,不會讀取你雲端硬碟其他檔案)。
-4. 把產生的 Client ID 貼到下方欄位並儲存,再按「登入 Google」。</div>
-            <div class="drive-row">
-              <input class="text-input" id="driveClientId" type="text" placeholder="貼上你的 Google OAuth Client ID" />
-              <button class="btn" id="saveClientId" type="button">儲存</button>
-            </div>
-          </details>
+      <div class="panel" id="viewManager" hidden>
+        <label class="field-label" style="margin:0 0 4px">我的腳本</label>
+        <div class="toolbar">
+          <button class="btn primary" id="managerNewScript" type="button">🆕 新增腳本</button>
+          <button class="btn" id="managerRefresh" type="button">🔄 重新整理</button>
+          <button class="btn" id="managerSignOut" type="button">登出</button>
+        </div>
+        <div class="status" id="managerStatus"></div>
+        <div class="drive-files" id="managerFiles"></div>
+      </div>
+
+      <div id="viewEditor" hidden>
+        <div class="panel">
           <div class="toolbar">
-            <button class="btn" id="driveSignIn" type="button">登入 Google</button>
-            <button class="btn" id="driveSignOut" type="button" disabled>登出</button>
-            <button class="btn" id="driveSave" type="button" disabled>儲存到雲端</button>
-            <button class="btn" id="driveList" type="button" disabled>從雲端載入清單</button>
+            <button class="btn" id="backToManager" type="button">← 返回腳本清單</button>
           </div>
+          <div class="script-name-row">
+            <label class="field-label" for="scriptName" style="margin:0">腳本名稱</label>
+            <input class="text-input" id="scriptName" type="text" value="未命名腳本" />
+          </div>
+          <div class="toolbar">
+            <button class="btn primary" id="driveSave" type="button">💾 儲存</button>
+            <button class="btn" id="saveLocal" type="button">⬇ 下載備份(JSON)</button>
+            <button class="btn" id="loadLocalBtn" type="button">⬆ 從本機檔案還原</button>
+            <input type="file" id="loadLocalFile" accept="application/json,.json" hidden />
+          </div>
+          <div class="status" id="scriptStatus"></div>
           <div class="status" id="driveStatus"></div>
-          <div class="drive-files" id="driveFiles"></div>
-        </details>
-      </div>
+        </div>
 
-      <div class="mode-tabs">
-        <button class="mode-tab active" id="tabEdit" type="button">📝 腳本編輯</button>
-        <button class="mode-tab" id="tabPlay" type="button">▶️ 提詞播放</button>
-      </div>
+        <div class="mode-tabs">
+          <button class="mode-tab active" id="tabEdit" type="button">📝 腳本編輯</button>
+          <button class="mode-tab" id="tabPlay" type="button">▶️ 提詞播放</button>
+        </div>
 
-      <div class="panel mode-panel show" id="panelEdit">
-        <div class="bulk-paste">
-          <label class="field-label" for="bulkText">批次貼上(比照「開始-結束 內容」格式,每行一段,例如從排練截圖照打)</label>
-          <textarea id="bulkText" placeholder="0:00-0:23 薰天使下懸停轉360、冷+檸公轉自轉&#10;0:33-1:05 湯+筑&#10;1:05-1:30 薰 solo"></textarea>
+        <div class="panel mode-panel show" id="panelEdit">
+          <div class="bulk-paste">
+            <label class="field-label" for="bulkText">批次貼上(比照「開始-結束 內容」格式,每行一段,例如從排練截圖照打)</label>
+            <textarea id="bulkText" placeholder="0:00-0:23 薰天使下懸停轉360、冷+檸公轉自轉&#10;0:33-1:05 湯+筑&#10;1:05-1:30 薰 solo"></textarea>
+            <div class="toolbar">
+              <button class="btn" id="bulkParse" type="button">解析並加入段落</button>
+              <span class="hint">也支援只有單一時間點的格式,例如「1:30 冷+檸」</span>
+            </div>
+          </div>
+
+          <label class="field-label" style="margin-top:10px">段落列表</label>
+          <div class="cue-list" id="cueList"></div>
           <div class="toolbar">
-            <button class="btn" id="bulkParse" type="button">解析並加入段落</button>
-            <span class="hint">也支援只有單一時間點的格式,例如「1:30 冷+檸」</span>
+            <button class="btn" id="addCue" type="button">＋ 新增段落</button>
+            <button class="btn" id="clearCues" type="button">清空全部段落</button>
           </div>
-        </div>
 
-        <label class="field-label" style="margin-top:10px">段落列表</label>
-        <div class="cue-list" id="cueList"></div>
-        <div class="toolbar">
-          <button class="btn" id="addCue" type="button">＋ 新增段落</button>
-          <button class="btn" id="clearCues" type="button">清空全部段落</button>
-        </div>
-
-        <div class="settings">
-          <div class="opt">
-            <label class="field-label" for="countdownSeconds">倒數秒數</label>
-            <input class="text-input" id="countdownSeconds" type="number" min="1" max="10" step="1" value="5" />
-            <span class="hint">1–10</span>
+          <div class="settings">
+            <div class="opt">
+              <label class="field-label" for="countdownSeconds">倒數秒數</label>
+              <input class="text-input" id="countdownSeconds" type="number" min="1" max="10" step="1" value="5" />
+              <span class="hint">1–10</span>
+            </div>
+            <div class="opt">
+              <label class="field-label" for="voiceVol">語音音量</label>
+              <input class="text-input" id="voiceVol" type="number" min="0" max="300" step="10" value="120" />
+              <span class="hint">%</span>
+            </div>
+            <div class="opt">
+              <label class="field-label" for="preRoll">預告提前秒數</label>
+              <input class="text-input" id="preRoll" type="number" min="0" max="30" step="1" value="5" />
+              <span class="hint">播放時提前幾秒顯示下一段</span>
+            </div>
           </div>
-          <div class="opt">
-            <label class="field-label" for="voiceVol">語音音量</label>
-            <input class="text-input" id="voiceVol" type="number" min="0" max="300" step="10" value="120" />
-            <span class="hint">%</span>
+          <p class="note">每個段落可勾選「提示音」,播放到接近該段落開始時間前(依上方倒數秒數),會用語音倒數 5…1 提醒。</p>
+        </div>
+
+        <div class="mode-panel" id="panelPlay">
+          <div class="play-source">
+            <div class="dropzone-mini" id="audioDropzone">
+              🎵 點擊選擇音樂檔(選用)或拖曳到此處 — 不選擇的話會改用手動計時器,方便音樂由其他裝置播放時同步提詞
+            </div>
+            <input type="file" id="audioFile" accept="audio/*" hidden />
+            <div class="file-info hint" id="audioFileInfo" style="margin-top:8px"></div>
           </div>
-          <div class="opt">
-            <label class="field-label" for="preRoll">預告提前秒數</label>
-            <input class="text-input" id="preRoll" type="number" min="0" max="30" step="1" value="5" />
-            <span class="hint">播放時提前幾秒顯示下一段</span>
+
+          <div class="prompter">
+            <div class="prompter-time" id="prompterTime">00:00 / --:--</div>
+            <div class="prompter-current empty" id="prompterCurrent">尚未開始</div>
+            <div class="prompter-next" id="prompterNext"></div>
+            <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
           </div>
-        </div>
-        <p class="note">每個段落可勾選「提示音」,播放到接近該段落開始時間前(依上方倒數秒數),會用語音倒數 5…1 提醒。</p>
-      </div>
 
-      <div class="mode-panel" id="panelPlay">
-        <div class="play-source">
-          <div class="dropzone-mini" id="audioDropzone">
-            🎵 點擊選擇音樂檔(選用)或拖曳到此處 — 不選擇的話會改用手動計時器,方便音樂由其他裝置播放時同步提詞
+          <div class="play-controls">
+            <button class="btn primary" id="playBtn" type="button">▶ 開始</button>
+            <button class="btn" id="pauseBtn" type="button" disabled>⏸ 暫停</button>
+            <button class="btn" id="resetBtn" type="button">⏮ 重置</button>
+            <input type="range" id="seekRange" min="0" max="0" step="0.1" value="0" disabled style="display:none" />
+            <label class="check"><input type="checkbox" id="voiceEnabled" checked /> 播放提示音</label>
           </div>
-          <input type="file" id="audioFile" accept="audio/*" hidden />
-          <div class="file-info hint" id="audioFileInfo" style="margin-top:8px"></div>
-        </div>
 
-        <div class="prompter">
-          <div class="prompter-time" id="prompterTime">00:00 / --:--</div>
-          <div class="prompter-current empty" id="prompterCurrent">尚未開始</div>
-          <div class="prompter-next" id="prompterNext"></div>
-          <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+          <div class="cue-list-view" id="cueListView"></div>
         </div>
-
-        <div class="play-controls">
-          <button class="btn primary" id="playBtn" type="button">▶ 開始</button>
-          <button class="btn" id="pauseBtn" type="button" disabled>⏸ 暫停</button>
-          <button class="btn" id="resetBtn" type="button">⏮ 重置</button>
-          <input type="range" id="seekRange" min="0" max="0" step="0.1" value="0" disabled style="display:none" />
-          <label class="check"><input type="checkbox" id="voiceEnabled" checked /> 播放提示音</label>
-        </div>
-
-        <div class="cue-list-view" id="cueListView"></div>
       </div>
     </main>
 
@@ -420,14 +418,6 @@
           renderCueList();
           renderCueListView();
         }
-
-        $("newScript").addEventListener("click", function () {
-          if (script.cues.length && !confirm("目前的腳本尚未儲存,確定要建立新腳本嗎?")) return;
-          script = defaultScript();
-          driveFileId = null;
-          applyScriptToUI();
-          setScriptStatus("已建立新腳本", "ok");
-        });
 
         $("saveLocal").addEventListener("click", function () {
           readSettingsIntoScript();
@@ -702,59 +692,63 @@
           if (audioEl) audioEl.currentTime = Number(seekRange.value);
         });
 
-        // ---------------- Google Drive integration ----------------
+        // ---------------- Google Drive integration (登入強制,不可自訂 Client ID) ----------------
         var DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
         var DRIVE_FOLDER_NAME = "WebTools-CuePrompter";
-        // 站長可在部署自己的網域後,到 Google Cloud Console 申請一組 OAuth Client ID(已授權網域填自己的網站網址),
-        // 貼在這裡即可讓所有訪客直接按「登入 Google」使用,不需要每個人自己申請、貼 Client ID。
-        var DEFAULT_DRIVE_CLIENT_ID = "";
-        var driveClientIdInput = $("driveClientId"), driveStatus = $("driveStatus"),
-          driveSignInBtn = $("driveSignIn"), driveSignOutBtn = $("driveSignOut"),
-          driveSaveBtn = $("driveSave"), driveListBtn = $("driveList"), driveFilesEl = $("driveFiles");
-        var driveClientId = localStorage.getItem("cue-prompter:driveClientId") || DEFAULT_DRIVE_CLIENT_ID;
+        // 站長已在 Google Cloud Console 申請此 Client ID 並設定好本站網域,整站共用,訪客不可自行替換。
+        var DRIVE_CLIENT_ID = "895127650907-r62nm1hfi7f4isf4odb6fqrgfdi5fdcm.apps.googleusercontent.com";
+
+        var viewLogin = $("viewLogin"), viewManager = $("viewManager"), viewEditor = $("viewEditor");
+        var loginBtn = $("loginBtn"), loginStatus = $("loginStatus");
+        var managerFilesEl = $("managerFiles"), managerStatus = $("managerStatus"),
+          managerNewBtn = $("managerNewScript"), managerRefreshBtn = $("managerRefresh"), managerSignOutBtn = $("managerSignOut");
+        var backToManagerBtn = $("backToManager");
+        var driveStatus = $("driveStatus"), driveSaveBtn = $("driveSave");
+
         var driveTokenClient = null, driveAccessToken = null, driveFolderId = null, driveFileId = null, driveFileName = null;
-        driveClientIdInput.value = localStorage.getItem("cue-prompter:driveClientId") || "";
-        if (DEFAULT_DRIVE_CLIENT_ID) {
-          $("driveHintDefault").hidden = false;
-          $("driveCustomClientSummary").textContent = "自訂 Client ID(進階;自行架設本工具在其他網域時使用)";
+
+        function showView(name) {
+          viewLogin.hidden = name !== "login";
+          viewManager.hidden = name !== "manager";
+          viewEditor.hidden = name !== "editor";
         }
 
+        function setLoginStatus(msg, kind) {
+          loginStatus.textContent = msg || "";
+          loginStatus.className = "status" + (kind ? " " + kind : "");
+        }
+        function setManagerStatus(msg, kind) {
+          managerStatus.textContent = msg || "";
+          managerStatus.className = "status" + (kind ? " " + kind : "");
+        }
         function setDriveStatus(msg, kind) {
           driveStatus.textContent = msg || "";
           driveStatus.className = "status" + (kind ? " " + kind : "");
         }
 
-        $("saveClientId").addEventListener("click", function () {
-          driveClientId = driveClientIdInput.value.trim();
-          localStorage.setItem("cue-prompter:driveClientId", driveClientId);
-          driveTokenClient = null;
-          setDriveStatus("✓ 已儲存 Client ID", "ok");
-        });
-
         function ensureGisLoaded(cb, retries) {
           if (window.google && google.accounts && google.accounts.oauth2) { cb(); return; }
-          if (retries === undefined) retries = 15;
-          if (retries <= 0) { setDriveStatus("✗ Google 登入元件載入失敗,請檢查網路連線", "error"); return; }
+          if (retries === undefined) retries = 20;
+          if (retries <= 0) { setLoginStatus("✗ Google 登入元件載入失敗,請檢查網路連線後重新整理頁面", "error"); return; }
           setTimeout(function () { ensureGisLoaded(cb, retries - 1); }, 300);
         }
 
         function onDriveToken(resp) {
-          if (resp.error) { setDriveStatus("✗ 登入失敗:" + resp.error, "error"); return; }
+          if (resp.error) { setLoginStatus("✗ 登入失敗:" + resp.error, "error"); return; }
           driveAccessToken = resp.access_token;
-          setDriveStatus("✓ 已登入 Google", "ok");
-          driveSignInBtn.textContent = "重新登入";
-          driveSignOutBtn.disabled = false;
-          driveSaveBtn.disabled = false;
-          driveListBtn.disabled = false;
+          setLoginStatus("");
+          showView("manager");
+          refreshManagerList();
         }
 
-        driveSignInBtn.addEventListener("click", function () {
-          if (!driveClientId) { setDriveStatus("✗ 請先貼上並儲存 Client ID", "error"); return; }
-          setDriveStatus("正在載入 Google 登入元件…");
+        loginBtn.addEventListener("click", function () {
+          if (!DRIVE_CLIENT_ID) { setLoginStatus("✗ 尚未設定 Google Client ID,請聯絡站長設定", "error"); return; }
+          setLoginStatus("正在載入 Google 登入元件…");
           ensureGisLoaded(function () {
+            setLoginStatus("");
             if (!driveTokenClient) {
               driveTokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: driveClientId,
+                client_id: DRIVE_CLIENT_ID,
                 scope: DRIVE_SCOPE,
                 callback: onDriveToken,
               });
@@ -763,18 +757,18 @@
           });
         });
 
-        driveSignOutBtn.addEventListener("click", function () {
+        managerSignOutBtn.addEventListener("click", function () {
           if (driveAccessToken && window.google && google.accounts) {
             google.accounts.oauth2.revoke(driveAccessToken, function () {});
           }
           driveAccessToken = null;
           driveFolderId = null;
           driveFileId = null;
-          driveSignOutBtn.disabled = true;
-          driveSaveBtn.disabled = true;
-          driveListBtn.disabled = true;
-          driveFilesEl.innerHTML = "";
-          setDriveStatus("已登出", "ok");
+          driveFileName = null;
+          managerFilesEl.innerHTML = "";
+          setManagerStatus("");
+          setLoginStatus("已登出", "ok");
+          showView("login");
         });
 
         function driveFetch(url, opts) {
@@ -803,6 +797,82 @@
             });
         }
 
+        function listDriveFiles(folderId) {
+          var q = encodeURIComponent("'" + folderId + "' in parents and trashed=false");
+          return driveFetch("https://www.googleapis.com/drive/v3/files?q=" + q + "&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc")
+            .then(function (r) { return r.json(); })
+            .then(function (data) { return data.files || []; });
+        }
+
+        function refreshManagerList() {
+          setManagerStatus("正在讀取雲端腳本清單…");
+          managerFilesEl.innerHTML = "";
+          ensureDriveFolder().then(function (folderId) {
+            return listDriveFiles(folderId);
+          }).then(function (files) {
+            if (!files.length) { setManagerStatus("目前沒有已儲存的腳本,按「新增腳本」開始建立。", "ok"); return; }
+            files.forEach(function (f) {
+              var row = document.createElement("div");
+              row.className = "drive-file-row";
+
+              var btn = document.createElement("button");
+              btn.type = "button";
+              btn.className = "drive-file-btn";
+              btn.textContent = f.name.replace(/\.json$/i, "") + "  ·  " + new Date(f.modifiedTime).toLocaleString();
+              btn.addEventListener("click", function () { openDriveFile(f.id, f.name); });
+
+              var rmBtn = document.createElement("button");
+              rmBtn.type = "button";
+              rmBtn.className = "mini-btn rm";
+              rmBtn.title = "刪除";
+              rmBtn.textContent = "✕";
+              rmBtn.addEventListener("click", function () {
+                if (!confirm("確定要刪除腳本「" + f.name.replace(/\.json$/i, "") + "」嗎?此動作無法復原。")) return;
+                driveFetch("https://www.googleapis.com/drive/v3/files/" + f.id, { method: "DELETE" })
+                  .then(function () { setManagerStatus("✓ 已刪除", "ok"); refreshManagerList(); })
+                  .catch(function (err) { setManagerStatus("✗ " + err.message, "error"); });
+              });
+
+              row.appendChild(btn);
+              row.appendChild(rmBtn);
+              managerFilesEl.appendChild(row);
+            });
+            setManagerStatus("共 " + files.length + " 份腳本", "ok");
+          }).catch(function (err) {
+            setManagerStatus("✗ " + err.message, "error");
+          });
+        }
+
+        function openDriveFile(fileId, name) {
+          setManagerStatus("正在載入「" + name + "」…");
+          driveFetch("https://www.googleapis.com/drive/v3/files/" + fileId + "?alt=media")
+            .then(function (r) { return r.json(); })
+            .then(function (obj) {
+              loadScriptObject(obj);
+              driveFileId = fileId;
+              driveFileName = name;
+              setDriveStatus("");
+              showView("editor");
+            })
+            .catch(function (err) { setManagerStatus("✗ " + err.message, "error"); });
+        }
+
+        managerNewBtn.addEventListener("click", function () {
+          script = defaultScript();
+          driveFileId = null;
+          driveFileName = null;
+          applyScriptToUI();
+          resetPlayback();
+          setDriveStatus("");
+          showView("editor");
+        });
+        managerRefreshBtn.addEventListener("click", refreshManagerList);
+
+        backToManagerBtn.addEventListener("click", function () {
+          showView("manager");
+          refreshManagerList();
+        });
+
         function buildMultipart(metadata, contentStr) {
           var boundary = "-------cueprompter" + Math.random().toString(16).slice(2);
           var delimiter = "\r\n--" + boundary + "\r\n";
@@ -812,28 +882,51 @@
           return { body: body, boundary: boundary };
         }
 
+        function updateDriveFile(fileId, name, content) {
+          var mp = buildMultipart({ name: name }, content);
+          return driveFetch("https://www.googleapis.com/upload/drive/v3/files/" + fileId + "?uploadType=multipart", {
+            method: "PATCH",
+            headers: { "Content-Type": 'multipart/related; boundary="' + mp.boundary + '"' },
+            body: mp.body,
+          });
+        }
+        function createDriveFile(folderId, name, content) {
+          var mp = buildMultipart({ name: name, parents: [folderId] }, content);
+          return driveFetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
+            method: "POST",
+            headers: { "Content-Type": 'multipart/related; boundary="' + mp.boundary + '"' },
+            body: mp.body,
+          }).then(function (r) { return r.json(); });
+        }
+
         driveSaveBtn.addEventListener("click", function () {
           readSettingsIntoScript();
           sortCues();
+          var name = (script.name || "cue-script") + ".json";
+          var content = JSON.stringify(script, null, 2);
           setDriveStatus("正在儲存到雲端硬碟…");
           driveSaveBtn.disabled = true;
           ensureDriveFolder().then(function (folderId) {
-            var name = (script.name || "cue-script") + ".json";
-            var content = JSON.stringify(script, null, 2);
-            if (driveFileId && driveFileName === name) {
-              var mp = buildMultipart({ name: name }, content);
-              return driveFetch("https://www.googleapis.com/upload/drive/v3/files/" + driveFileId + "?uploadType=multipart", {
-                method: "PATCH",
-                headers: { "Content-Type": 'multipart/related; boundary="' + mp.boundary + '"' },
-                body: mp.body,
+            return listDriveFiles(folderId).then(function (files) {
+              var conflict = files.filter(function (f) { return f.name === name && f.id !== driveFileId; })[0];
+              var targetId = driveFileId;
+              if (conflict) {
+                var overwrite = confirm(
+                  "雲端硬碟已經有一份同名腳本「" + script.name + "」。\n\n按「確定」覆蓋既有的那份,按「取消」另外建立一份新的存檔。"
+                );
+                targetId = overwrite ? conflict.id : null;
+              }
+              if (targetId) {
+                return updateDriveFile(targetId, name, content).then(function () {
+                  driveFileId = targetId;
+                  driveFileName = name;
+                });
+              }
+              return createDriveFile(folderId, name, content).then(function (file) {
+                driveFileId = file.id;
+                driveFileName = name;
               });
-            }
-            var mp2 = buildMultipart({ name: name, parents: [folderId] }, content);
-            return driveFetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
-              method: "POST",
-              headers: { "Content-Type": 'multipart/related; boundary="' + mp2.boundary + '"' },
-              body: mp2.body,
-            }).then(function (r) { return r.json(); }).then(function (file) { driveFileId = file.id; driveFileName = name; });
+            });
           }).then(function () {
             setDriveStatus("✓ 已儲存至雲端硬碟", "ok");
           }).catch(function (err) {
@@ -843,44 +936,9 @@
           });
         });
 
-        driveListBtn.addEventListener("click", function () {
-          setDriveStatus("正在讀取雲端清單…");
-          driveFilesEl.innerHTML = "";
-          ensureDriveFolder().then(function (folderId) {
-            var q = encodeURIComponent("'" + folderId + "' in parents and trashed=false");
-            return driveFetch("https://www.googleapis.com/drive/v3/files?q=" + q + "&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc");
-          }).then(function (r) { return r.json(); }).then(function (data) {
-            var files = data.files || [];
-            if (!files.length) { setDriveStatus("雲端硬碟目前沒有已儲存的腳本", "ok"); return; }
-            files.forEach(function (f) {
-              var btn = document.createElement("button");
-              btn.type = "button";
-              btn.className = "drive-file-btn";
-              btn.textContent = f.name + "  (" + new Date(f.modifiedTime).toLocaleString() + ")";
-              btn.addEventListener("click", function () { loadFromDrive(f.id, f.name); });
-              driveFilesEl.appendChild(btn);
-            });
-            setDriveStatus("✓ 共 " + files.length + " 份腳本", "ok");
-          }).catch(function (err) {
-            setDriveStatus("✗ " + err.message, "error");
-          });
-        });
-
-        function loadFromDrive(fileId, name) {
-          setDriveStatus("正在載入「" + name + "」…");
-          driveFetch("https://www.googleapis.com/drive/v3/files/" + fileId + "?alt=media")
-            .then(function (r) { return r.json(); })
-            .then(function (obj) {
-              loadScriptObject(obj);
-              driveFileId = fileId;
-              driveFileName = name;
-              setDriveStatus("✓ 已載入「" + name + "」", "ok");
-            })
-            .catch(function (err) { setDriveStatus("✗ " + err.message, "error"); });
-        }
-
         // ---------------- Init ----------------
         applyScriptToUI();
+        showView("login");
       })();
     </script>
   </body>
