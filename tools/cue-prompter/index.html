@@ -117,6 +117,42 @@
       .cue-list-view .item .t { font-family: var(--mono); font-size: 0.78rem; color: var(--text-muted); margin-right: 8px; }
       .cue-list-view .item.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); font-weight: 700; }
       .note { font-size: 0.82rem; color: var(--text-muted); margin-top: 18px; line-height: 1.6; }
+
+      /* ---------- 手機版排版優化 ---------- */
+      @media (max-width: 640px) {
+        .tool-page h1 { font-size: 1.35rem; }
+        .tool-page .subtitle { font-size: 0.9rem; margin-bottom: 18px; }
+        .panel { padding: 16px; }
+
+        /* 管理頁工具列:兩欄等寬 + 加大點擊區,避免長短不一的換行 */
+        #viewManager .toolbar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+        #viewManager .toolbar .btn { width: 100%; padding: 12px 8px; }
+
+        /* 腳本清單:檔名獨占一行,操作鈕移到下一行靠右並加大成好按的按鈕 */
+        .drive-file-row { flex-wrap: wrap; justify-content: flex-end; row-gap: 8px; }
+        .drive-file-btn { flex: 1 1 100%; }
+        .drive-file-row .mini-btn {
+          flex: 0 0 auto; min-width: 46px; min-height: 40px;
+          font-size: 1.15rem; border: 1px solid var(--border);
+          background: var(--surface-2); border-radius: var(--radius-sm);
+        }
+
+        /* 編輯頁分頁:返回鈕整行,兩個分頁平均分寬 */
+        .editor-nav { flex-direction: column; align-items: stretch; gap: 12px; }
+        .editor-nav .back-btn { width: 100%; }
+        .editor-nav .mode-tabs { margin: 0; gap: 8px; }
+        .mode-tab { flex: 1; text-align: center; padding: 10px 4px; }
+
+        /* 段落編輯列:時間一排 → 內容整行 → 提示音與控制鈕一排(加大) */
+        .cue-row .text { flex: 1 1 100%; order: 5; }
+        .cue-row input.time { flex: 1 1 0; width: auto; min-width: 0; }
+        .cue-row label.voice-chk { order: 6; margin-right: auto; }
+        .cue-row .mini-btn { order: 7; min-width: 40px; min-height: 38px; font-size: 1.2rem; }
+
+        /* 播放控制:主要按鈕加大、勾選獨占一行 */
+        .play-controls .btn { flex: 1 1 auto; padding: 12px 10px; }
+        .play-controls .check { flex: 1 1 100%; }
+      }
     </style>
   </head>
   <body>
@@ -137,7 +173,7 @@
     <main class="container tool-page">
       <a class="back" href="../../">← 返回工具列表</a>
       <h1>🎬 演出提詞機(v2)</h1>
-      <p class="subtitle">
+      <p class="subtitle" id="pageIntro">
         類似歌詞提詞器的演出流程小工具:先把流程腳本(時間點 + 段落內容)編輯好,
         播放時會用大字顯示目前段落、提前顯示下一段「預告」,並可選擇在段落開始前播放倒數提示音。
         腳本一律儲存在你自己的 Google 雲端硬碟,因此需要先登入 Google 才能建立、開啟或播放腳本。
@@ -1001,6 +1037,9 @@
           viewLogin.hidden = name !== "login";
           viewManager.hidden = name !== "manager";
           viewEditor.hidden = name !== "editor";
+          // 說明文字只在入口頁(登入 / 腳本清單)顯示;進到腳本操作(編輯 / 播放)就不再重複介紹
+          var intro = $("pageIntro");
+          if (intro) intro.hidden = name === "editor";
         }
 
         function setLoginStatus(msg, kind) {
