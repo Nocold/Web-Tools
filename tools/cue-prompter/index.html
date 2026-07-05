@@ -197,10 +197,10 @@
             <h3 class="block-title">📋 批次貼上</h3>
             <div class="bulk-paste">
               <label class="field-label" for="bulkText">比照「開始-結束 內容」格式,每行一段,例如從排練截圖照打</label>
-              <textarea id="bulkText" placeholder="0:00-0:23 薰天使下懸停轉360、冷+檸公轉自轉&#10;0:33-1:05 湯+筑&#10;1:05-1:30 薰 solo"></textarea>
+              <textarea id="bulkText" placeholder="0:00-0:20 開場&#10;0:20-1:00 主段落&#10;1:00-1:30 個人 solo"></textarea>
               <div class="toolbar">
                 <button class="btn" id="bulkParse" type="button">解析並加入段落</button>
-                <span class="hint">也支援只有單一時間點的格式,例如「1:30 冷+檸」</span>
+                <span class="hint">也支援只有單一時間點的格式,例如「1:30 換場」</span>
               </div>
               <div class="status" id="bulkStatus" style="margin-top:8px"></div>
             </div>
@@ -355,7 +355,7 @@
 
             var textInp = document.createElement("input");
             textInp.className = "text-input text";
-            textInp.placeholder = "段落內容,例如:湯+筑";
+            textInp.placeholder = "段落內容,例如:主段落";
             textInp.value = cue.text || "";
             textInp.addEventListener("input", function () { cue.text = textInp.value; });
 
@@ -417,7 +417,7 @@
         // full-width － or wave ～〜. Cover the whole hyphen/dash block so parsing never
         // silently fails on the separator character.
         // 內容前用 \s*(而非 \s+):結束時間後可能沒空格就直接接內容,例如
-        // 「0:00–0:23(薰...)」,結束時間已被前面的 TIME 貪婪吃掉,不會誤吞內容。
+        // 「0:00–0:23(內容…)」,結束時間已被前面的 TIME 貪婪吃掉,不會誤吞內容。
         var DASH = "[-\\u2010-\\u2015\\u2212\\uFF0D~\\uFF5E\\u301C]";
         var TIME = "\\d{1,2}(?::\\d{1,2}){1,2}|\\d+(?:\\.\\d+)?";
         var LINE_RE = new RegExp("^\\s*(" + TIME + ")\\s*(?:" + DASH + "|to)\\s*(" + TIME + ")?\\s*(.*)$");
@@ -479,13 +479,13 @@
           } else if (added && failed.length) {
             setBulkStatus(
               "✓ 已加入 " + added + " 段,但有 " + failed.length + " 行無法解析:「" + failed[0] + "」" +
-              (failed.length > 1 ? " 等" : "") + "。格式須為「開始–結束 內容」或「時間 內容」,例如 1:30 冷+檸",
+              (failed.length > 1 ? " 等" : "") + "。格式須為「開始–結束 內容」或「時間 內容」,例如 1:30 換場",
               "error"
             );
           } else {
             setBulkStatus(
               "✗ " + failed.length + " 行都無法解析,例如「" + failed[0] + "」。" +
-              "格式須為「開始–結束 內容」或「時間 內容」,時間用 分:秒(如 3:31–3:55 冷+檸)",
+              "格式須為「開始–結束 內容」或「時間 內容」,時間用 分:秒(如 0:20-1:00 主段落)",
               "error"
             );
           }
