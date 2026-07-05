@@ -79,7 +79,12 @@
       .dropzone-mini:hover { border-color: var(--accent); color: var(--text); }
 
       .prompter { text-align: center; padding: 28px 12px; background: var(--surface-2); border-radius: var(--radius); border: 1px solid var(--border); }
-      .prompter-time { font-family: var(--mono); color: var(--text-muted); font-size: 0.95rem; margin-bottom: 10px; }
+      /* 時間顯示疊在播放條內置中;mix-blend-mode 讓字在已填/未填區都清楚 */
+      .prompter-time {
+        position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+        font-family: var(--mono); font-size: 0.95rem; font-weight: 700;
+        color: #fff; mix-blend-mode: difference; pointer-events: none;
+      }
       .prompter-current { font-size: clamp(1.4rem, 5vw, 2.4rem); font-weight: 700; min-height: 1.4em; line-height: 1.3; }
       .prompter-current.empty { color: var(--text-muted); font-weight: 400; font-size: 1.2rem; }
       .prompter-remain { margin-top: 8px; font-size: 1.05rem; font-weight: 600; color: #f59e0b; min-height: 1.3em; }
@@ -89,8 +94,8 @@
       /* 頁面底部留白,內容不緊貼視窗底 */
       .tool-page { padding-bottom: 72px; }
 
-      .progress-track { height: 10px; border-radius: 999px; background: var(--surface-2); overflow: hidden; border: 1px solid var(--border); margin-top: 18px; }
-      .progress-bar { height: 100%; width: 0%; background: var(--accent); transition: width 0.15s linear; }
+      .progress-track { position: relative; height: 30px; border-radius: 999px; background: var(--surface-2); overflow: hidden; border: 1px solid var(--border); margin-top: 20px; }
+      .progress-bar { position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: var(--accent); transition: width 0.15s linear; }
 
       .play-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 18px; }
       .play-controls input[type="range"] { flex: 1 1 160px; }
@@ -230,11 +235,13 @@
           <div class="file-info hint" id="playAudioInfo" style="margin-bottom:10px"></div>
 
           <div class="prompter">
-            <div class="prompter-time" id="prompterTime">00:00 / --:--</div>
             <div class="prompter-current empty" id="prompterCurrent">尚未開始</div>
             <div class="prompter-remain" id="prompterRemain"></div>
             <div class="prompter-next" id="prompterNext"></div>
-            <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+            <div class="progress-track">
+              <div class="progress-bar" id="progressBar"></div>
+              <div class="prompter-time" id="prompterTime">00:00 / --:--</div>
+            </div>
           </div>
 
           <div class="play-controls">
