@@ -1039,7 +1039,9 @@
           setLoginStatus("正在載入 Google 登入元件…");
           ensureGisLoaded(function () {
             setLoginStatus("");
-            ensureTokenClient().requestAccessToken({ prompt: driveAccessToken ? "" : "consent" });
+            // 不強制 consent:已授權過就直接放行,免得每次都重跑同意頁。
+            // 只有 Google 判定必須(首次授權)才會顯示同意畫面。
+            ensureTokenClient().requestAccessToken({ prompt: "" });
           });
         });
 
