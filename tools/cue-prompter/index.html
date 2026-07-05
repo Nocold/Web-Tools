@@ -155,6 +155,7 @@
               <button class="btn" id="bulkParse" type="button">解析並加入段落</button>
               <span class="hint">也支援只有單一時間點的格式,例如「1:30 冷+檸」</span>
             </div>
+            <div class="status" id="bulkStatus" style="margin-top:8px"></div>
           </div>
 
           <label class="field-label" style="margin-top:10px">段落列表</label>
@@ -358,9 +359,15 @@
         });
 
         // ---------------- Bulk paste parser ----------------
-        // Matches "start-end text" or just "start text"
-        var LINE_RE = /^\s*(\d{1,2}(?::\d{1,2}){1,2}|\d+(?:\.\d+)?)\s*(?:-|~|—|to)\s*(\d{1,2}(?::\d{1,2}){1,2}|\d+(?:\.\d+)?)?\s+(.*)$/;
-        var LINE_RE_SINGLE = /^\s*(\d{1,2}(?::\d{1,2}){1,2}|\d+(?:\.\d+)?)\s+(.*)$/;
+        // Matches "start-end text" or just "start text".
+        // Separator accepts ASCII hyphen plus common Unicode dash/tilde variants and "to".
+        // Real-world paste (排練截圖照打) rarely uses ASCII "-"; it's usually – (en) / — (em) /
+        // full-width － or wave ～〜. Cover the whole hyphen/dash block so parsing never
+        // silently fails on the separator character.
+        var DASH = "[-\\u2010-\\u2015\\u2212\\uFF0D~\\uFF5E\\u301C]";
+        var TIME = "\\d{1,2}(?::\\d{1,2}){1,2}|\\d+(?:\\.\\d+)?";
+        var LINE_RE = new RegExp("^\\s*(" + TIME + ")\\s*(?:" + DASH + "|to)\\s*(" + TIME + ")?\\s+(.*)$");
+        var LINE_RE_SINGLE = new RegExp("^\\s*(" + TIME + ")\\s+(.*)$");
 
         function parseBulkLine(line) {
           line = line.trim();
@@ -385,22 +392,43 @@
           return null;
         }
 
+        var bulkStatus = $("bulkStatus");
+        function setBulkStatus(msg, kind) {
+          bulkStatus.textContent = msg || "";
+          bulkStatus.className = "status" + (kind ? " " + kind : "");
+        }
+
         $("bulkParse").addEventListener("click", function () {
           var raw = $("bulkText").value.split("\n");
-          var added = 0, skipped = 0;
+          var added = 0;
+          var failed = [];
           raw.forEach(function (line) {
             if (!line.trim()) return;
             var cue = parseBulkLine(line);
             if (cue) { script.cues.push(cue); added++; }
-            else skipped++;
+            else failed.push(line.trim());
           });
           sortCues();
           renderCueList();
           if (added) $("bulkText").value = "";
-          setScriptStatus(
-            added ? "✓ 已加入 " + added + " 段" + (skipped ? "(略過 " + skipped + " 行無法解析)" : "") : "✗ 沒有可解析的行,請確認格式",
-            added ? "ok" : "error"
-          );
+
+          if (!added && !failed.length) {
+            setBulkStatus("⚠ 沒有輸入內容,請先貼上流程腳本", "error");
+          } else if (added && !failed.length) {
+            setBulkStatus("✓ 已加入 " + added + " 段", "ok");
+          } else if (added && failed.length) {
+            setBulkStatus(
+              "✓ 已加入 " + added + " 段,但有 " + failed.length + " 行無法解析:「" + failed[0] + "」" +
+              (failed.length > 1 ? " 等" : "") + "。格式須為「開始–結束 內容」或「時間 內容」,例如 1:30 冷+檸",
+              "error"
+            );
+          } else {
+            setBulkStatus(
+              "✗ " + failed.length + " 行都無法解析,例如「" + failed[0] + "」。" +
+              "格式須為「開始–結束 內容」或「時間 內容」,時間用 分:秒(如 3:31–3:55 冷+檸)",
+              "error"
+            );
+          }
         });
 
         // ---------------- Local save / load ----------------
