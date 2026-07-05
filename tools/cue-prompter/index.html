@@ -30,6 +30,9 @@
       .editor-nav .mode-tabs { margin: 0 0 0 auto; }
       /* 標題卡片:腳本名稱 + 儲存 */
       .editor-header { margin-bottom: 18px; }
+      /* 播放模式:濃縮標題(不再用整張大卡片) */
+      .play-title { font-size: 1.05rem; font-weight: 700; color: var(--text); margin: 0 0 4px; }
+      .play-title:empty { display: none; }
       .editor-topbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
       .editor-topbar .script-name-input { flex: 1 1 200px; min-width: 0; }
 
@@ -165,7 +168,7 @@
           </div>
         </div>
 
-        <div class="panel editor-header">
+        <div class="panel editor-header" id="editorHeader">
           <div class="editor-topbar">
             <input class="text-input script-name-input" id="scriptName" type="text" value="未命名腳本" placeholder="腳本名稱" aria-label="腳本名稱" />
             <button class="btn primary" id="driveSave" type="button">💾 儲存</button>
@@ -234,6 +237,7 @@
         </div>
 
         <div class="mode-panel" id="panelPlay">
+          <div class="play-title" id="playTitle"></div>
           <div class="file-info hint" id="playAudioInfo" style="margin-bottom:10px"></div>
 
           <div class="prompter">
@@ -247,8 +251,7 @@
           </div>
 
           <div class="play-controls">
-            <button class="btn primary" id="playBtn" type="button">▶ 開始</button>
-            <button class="btn" id="pauseBtn" type="button" disabled>⏸ 暫停</button>
+            <button class="btn primary" id="playPauseBtn" type="button">▶ 開始</button>
             <button class="btn" id="resetBtn" type="button">⏮ 重置</button>
             <input type="range" id="seekRange" min="0" max="0" step="0.1" value="0" disabled style="display:none" />
             <label class="check"><input type="checkbox" id="voiceEnabled" checked /> 播放提示音</label>
@@ -547,6 +550,9 @@
         function setEditMode(editing) {
           $("driveSave").hidden = !editing;
           scriptNameInput.readOnly = !editing;
+          // 播放模式濃縮標題:隱藏大標題卡,改用播放頁上方一行小標題
+          $("editorHeader").hidden = !editing;
+          $("playTitle").textContent = editing ? "" : (scriptNameInput.value.trim() || "未命名腳本");
         }
         function activateEditTab() {
           tabEdit.classList.add("active"); tabPlay.classList.remove("active");
@@ -599,7 +605,7 @@
         var lastElapsed = -1, rafId = null, currentCueIdx = -1;
         var prompterTime = $("prompterTime"), prompterCurrent = $("prompterCurrent"), prompterNext = $("prompterNext"),
           prompterRemain = $("prompterRemain"),
-          progressBar = $("progressBar"), playBtn = $("playBtn"), pauseBtn = $("pauseBtn"), resetBtn = $("resetBtn"),
+          progressBar = $("progressBar"), playPauseBtn = $("playPauseBtn"), resetBtn = $("resetBtn"),
           seekRange = $("seekRange"), voiceEnabledChk = $("voiceEnabled"), cueListViewEl = $("cueListView"),
           audioDropzone = $("audioDropzone"), audioFileInput = $("audioFile"), audioFileInfo = $("audioFileInfo"),
           audioRemoveBtn = $("audioRemove"), playAudioInfo = $("playAudioInfo");
@@ -830,10 +836,15 @@
           leadInTimers.forEach(function (t) { clearTimeout(t); });
           leadInTimers = [];
         }
+        // 開始/暫停合併成一顆切換鈕
+        function setPlayingUI(playing) {
+          playPauseBtn.textContent = playing ? "⏸ 暫停" : "▶ 開始";
+          playPauseBtn.dataset.playing = playing ? "1" : "";
+        }
+
         function runLeadIn(plan, done) {
           leadInActive = true;
-          playBtn.disabled = true;
-          pauseBtn.disabled = false;
+          setPlayingUI(true);
           prompterCurrent.classList.remove("empty");
           prompterNext.textContent = plan.firstText ? "即將開始:" + plan.firstText : "";
           plan.events.forEach(function (e) {
@@ -860,8 +871,7 @@
             manualRunning = true;
             manualStart = Date.now();
           }
-          playBtn.disabled = true;
-          pauseBtn.disabled = false;
+          setPlayingUI(true);
           updateDisplay(); // 立即顯示第一段,不等下一個 animation frame
           ensureTicking();
         }
@@ -877,8 +887,7 @@
         function pausePlayback() {
           if (leadInActive) {
             cancelLeadIn();
-            playBtn.disabled = false;
-            pauseBtn.disabled = true;
+            setPlayingUI(false);
             updateDisplay();
             return;
           }
@@ -888,8 +897,7 @@
             manualAccum += (Date.now() - manualStart) / 1000;
             manualRunning = false;
           }
-          playBtn.disabled = false;
-          pauseBtn.disabled = true;
+          setPlayingUI(false);
         }
         function resetPlayback() {
           pausePlayback();
@@ -902,8 +910,10 @@
           updateDisplay();
         }
 
-        playBtn.addEventListener("click", startPlayback);
-        pauseBtn.addEventListener("click", pausePlayback);
+        playPauseBtn.addEventListener("click", function () {
+          if (leadInActive || isRunning()) pausePlayback();
+          else startPlayback();
+        });
         resetBtn.addEventListener("click", resetPlayback);
         seekRange.addEventListener("input", function () {
           if (audioEl) audioEl.currentTime = Number(seekRange.value);
