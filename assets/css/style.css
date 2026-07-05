@@ -239,7 +239,9 @@ a:hover {
 
 /* ---------- Tool page layout ---------- */
 .tool-page {
-  padding: 32px 0 0;
+  /* 只設上方間距;左右留白交給 .container(padding: 0 20px),
+     否則手機版內容會貼齊螢幕邊緣 */
+  padding-top: 32px;
 }
 .tool-page .back {
   font-size: 0.9rem;
