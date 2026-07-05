@@ -109,7 +109,7 @@
       .check { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--text); }
       .check input { width: auto; }
 
-      .cue-list-view { margin-top: 20px; max-height: 320px; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+      .cue-list-view { position: relative; margin-top: 20px; max-height: 320px; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
       .cue-list-view .item { padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2); font-size: 0.9rem; }
       .cue-list-view .item .t { font-family: var(--mono); font-size: 0.78rem; color: var(--text-muted); margin-right: 8px; }
       .cue-list-view .item.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); font-weight: 700; }
@@ -754,7 +754,12 @@
             currentCueIdx = idx;
             renderCueListView();
             var activeEl = cueListViewEl.querySelector('.item[data-idx="' + idx + '"]');
-            if (activeEl) activeEl.scrollIntoView({ block: "center", behavior: "smooth" });
+            if (activeEl) {
+              // 只在段落清單容器內捲動,不用 scrollIntoView(它會連帶捲動整頁,
+              // 讓上方提詞展示區跳動)
+              var target = activeEl.offsetTop - (cueListViewEl.clientHeight - activeEl.offsetHeight) / 2;
+              cueListViewEl.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
+            }
           }
           var cur = idx >= 0 ? script.cues[idx] : null;
           if (cur) {
