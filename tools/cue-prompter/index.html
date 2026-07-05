@@ -369,8 +369,14 @@
         var LINE_RE = new RegExp("^\\s*(" + TIME + ")\\s*(?:" + DASH + "|to)\\s*(" + TIME + ")?\\s+(.*)$");
         var LINE_RE_SINGLE = new RegExp("^\\s*(" + TIME + ")\\s+(.*)$");
 
+        // Strip zero-width / BiDi / BOM chars that常隨貼上帶入(尤其貼上的第一行),
+        // trim() 清不到,會讓開頭那行 ^\s* 之後對不到數字而整行解析失敗。
+        function normalizeLine(line) {
+          return (line || "").replace(/[\u200B-\u200F\u2060\uFEFF]/g, "").trim();
+        }
+
         function parseBulkLine(line) {
-          line = line.trim();
+          line = normalizeLine(line);
           if (!line) return null;
           var m = line.match(LINE_RE);
           if (m) {
@@ -403,10 +409,10 @@
           var added = 0;
           var failed = [];
           raw.forEach(function (line) {
-            if (!line.trim()) return;
+            if (!normalizeLine(line)) return;
             var cue = parseBulkLine(line);
             if (cue) { script.cues.push(cue); added++; }
-            else failed.push(line.trim());
+            else failed.push(normalizeLine(line));
           });
           sortCues();
           renderCueList();
