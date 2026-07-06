@@ -30,8 +30,9 @@
       .editor-nav .mode-tabs { margin: 0 0 0 auto; }
       /* 標題卡片:腳本名稱 + 儲存 */
       .editor-header { margin-bottom: 18px; }
-      /* 播放模式:濃縮標題(不再用整張大卡片) */
-      .play-title { font-size: 1.05rem; font-weight: 700; color: var(--text); margin: 0 0 4px; }
+      /* 播放模式:腳本名稱 + 音樂檔併成一行,精簡上方 */
+      .play-meta { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+      .play-title { font-size: 1.05rem; font-weight: 700; color: var(--text); margin: 0; }
       .play-title:empty { display: none; }
       .editor-topbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
       .editor-topbar .script-name-input { flex: 1 1 200px; min-width: 0; }
@@ -82,7 +83,7 @@
       }
       .dropzone-mini:hover { border-color: var(--accent); color: var(--text); }
 
-      .prompter { text-align: center; padding: 28px 12px; background: var(--surface-2); border-radius: var(--radius); border: 1px solid var(--border); }
+      .prompter { text-align: center; padding: 22px 14px; background: var(--surface-2); border-radius: var(--radius); border: 1px solid var(--border); }
       /* 時間顯示疊在播放條內置中,分色裁切:填色(藍)上用白字、未填(灰)上用深字,
          在填色邊界剛好切開,兩側都高對比清楚 */
       .prompter-time {
@@ -293,8 +294,10 @@
         </div>
 
         <div class="mode-panel" id="panelPlay">
-          <div class="play-title" id="playTitle"></div>
-          <div class="file-info hint" id="playAudioInfo" style="margin-bottom:10px"></div>
+          <div class="play-meta">
+            <span class="play-title" id="playTitle"></span>
+            <span class="file-info hint" id="playAudioInfo"></span>
+          </div>
 
           <div class="prompter">
             <div class="prompter-current empty" id="prompterCurrent">尚未開始</div>
@@ -881,21 +884,25 @@
             prompterRemain.textContent = "";
           }
 
-          // 接下來:預覽下 3 組。第一筆帶倒數(接近時強調),後兩筆淡色列出時間+內容
+          // 聚焦當前 + 下一組:下一組醒目帶倒數;再後面的收成一行淡色「之後:…」
           prompterNext.innerHTML = "";
-          var upcoming = script.cues.slice(idx + 1, idx + 4);
-          upcoming.forEach(function (nc, i) {
-            var line = document.createElement("div");
-            line.className = "pn-item" + (i === 0 ? " pn-first" : "");
-            if (i === 0) {
-              var toNext = Math.max(0, nc.start - elapsed);
-              line.textContent = "接下來:" + (cueCompact(nc.text) || "(無內容)") + " · " + fmtTime(toNext) + " 後";
-              if (toNext <= (script.preRoll || 0)) line.classList.add("imminent");
-            } else {
-              line.textContent = fmtTime(nc.start) + "　" + (cueCompact(nc.text) || "(無內容)");
+          var next1 = script.cues[idx + 1];
+          if (next1) {
+            var toNext = Math.max(0, next1.start - elapsed);
+            var first = document.createElement("div");
+            first.className = "pn-item pn-first";
+            first.textContent = "接下來:" + (cueCompact(next1.text) || "(無內容)") + " · " + fmtTime(toNext) + " 後";
+            if (toNext <= (script.preRoll || 0)) first.classList.add("imminent");
+            prompterNext.appendChild(first);
+
+            var rest = script.cues.slice(idx + 2, idx + 4).map(function (c) { return cueCompact(c.text) || "(無內容)"; });
+            if (rest.length) {
+              var after = document.createElement("div");
+              after.className = "pn-item";
+              after.textContent = "之後:" + rest.join("、");
+              prompterNext.appendChild(after);
             }
-            prompterNext.appendChild(line);
-          });
+          }
 
           if (seekRange && audioEl && !seekRange.matches(":active")) seekRange.value = elapsed;
 
@@ -1034,6 +1041,8 @@
         seekRange.addEventListener("input", function () {
           if (audioEl) audioEl.currentTime = Number(seekRange.value);
         });
+        // 關閉或離開整個頁面時停止音樂(手機切走 App 也算)
+        window.addEventListener("pagehide", function () { cancelLeadIn(); pausePlayback(); });
 
         // ---------------- Google Drive integration (登入強制,不可自訂 Client ID) ----------------
         var DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
@@ -1086,6 +1095,8 @@
         }
 
         function showView(name) {
+          // 離開播放頁(編輯/播放)時停止音樂,避免返回清單或切頁後音樂還在背景播放
+          if (name !== "editor") { cancelLeadIn(); pausePlayback(); }
           viewLogin.hidden = name !== "login";
           viewManager.hidden = name !== "manager";
           viewEditor.hidden = name !== "editor";
