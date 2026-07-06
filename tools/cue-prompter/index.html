@@ -30,8 +30,8 @@
       .editor-nav .mode-tabs { margin: 0 0 0 auto; }
       /* 標題卡片:腳本名稱 + 儲存 */
       .editor-header { margin-bottom: 18px; }
-      /* 播放模式:腳本名稱 + 音樂檔併成一行,精簡上方 */
-      .play-meta { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+      /* 播放模式:腳本名稱靠左、音樂檔名靠右,併成一行 */
+      .play-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
       .play-title { font-size: 1.05rem; font-weight: 700; color: var(--text); margin: 0; }
       .play-title:empty { display: none; }
       .editor-topbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -97,11 +97,6 @@
       /* 第一行=大標(大字),第二行起=副標/註解(小字、淡色) */
       .prompter-current .pc-main { display: block; }
       .prompter-current .pc-sub { display: block; margin-top: 10px; font-size: 0.42em; font-weight: 500; line-height: 1.5; color: var(--text-muted); }
-      .prompter-remain { margin-top: 8px; font-size: 1.05rem; font-weight: 600; color: #f59e0b; min-height: 1.3em; }
-      .prompter-next { margin-top: 8px; min-height: 1.4em; display: flex; flex-direction: column; gap: 3px; align-items: center; }
-      .prompter-next .pn-item { font-size: 0.9rem; color: var(--text-muted); font-family: var(--mono); }
-      .prompter-next .pn-first { font-size: 1rem; color: var(--accent); font-family: var(--sans); }
-      .prompter-next .pn-first.imminent { font-weight: 700; font-size: 1.15rem; }
 
       /* 頁面底部留白,內容不緊貼視窗底 */
       .tool-page { padding-bottom: 72px; }
@@ -115,9 +110,14 @@
       .check input { width: auto; }
 
       .cue-list-view { position: relative; margin-top: 20px; max-height: 320px; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
-      .cue-list-view .item { padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2); font-size: 0.9rem; }
-      .cue-list-view .item .t { font-family: var(--mono); font-size: 0.78rem; color: var(--text-muted); margin-right: 8px; }
+      .cue-list-view .item { display: flex; align-items: center; gap: 6px; padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2); font-size: 0.9rem; }
+      .cue-list-view .item .t { font-family: var(--mono); font-size: 0.78rem; color: var(--text-muted); flex: 0 0 auto; }
+      .cue-list-view .item .item-text { flex: 1 1 auto; min-width: 0; }
       .cue-list-view .item.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); font-weight: 700; }
+      /* 清單列上的倒數:目前段落「剩」用琥珀、下一段「後」用主色 */
+      .cue-list-view .item-cd { flex: 0 0 auto; margin-left: auto; padding-left: 8px; font-family: var(--mono); font-size: 0.82rem; font-weight: 700; white-space: nowrap; }
+      .cue-list-view .item-cd.remain { color: #f59e0b; }
+      .cue-list-view .item-cd.next { color: var(--accent); }
       .note { font-size: 0.82rem; color: var(--text-muted); margin-top: 18px; line-height: 1.6; }
 
       /* 分享對話框:遮罩 + 置中卡片。用 [hidden] 覆蓋 display:flex(否則 hidden 屬性壓不過 flex) */
@@ -301,8 +301,6 @@
 
           <div class="prompter">
             <div class="prompter-current empty" id="prompterCurrent">尚未開始</div>
-            <div class="prompter-remain" id="prompterRemain"></div>
-            <div class="prompter-next" id="prompterNext"></div>
             <div class="progress-track">
               <div class="prompter-time pt-under" id="ptUnder">00:00 / --:--</div>
               <div class="progress-bar" id="progressBar"></div>
@@ -707,8 +705,7 @@
         var audioEl = null, audioFile = null, manualRunning = false, manualAccum = 0, manualStart = 0;
         var audioDirty = false, currentAudioName = "", audioFromCloud = false;
         var lastElapsed = -1, rafId = null, currentCueIdx = -1;
-        var ptUnder = $("ptUnder"), ptOver = $("ptOver"), prompterCurrent = $("prompterCurrent"), prompterNext = $("prompterNext"),
-          prompterRemain = $("prompterRemain"),
+        var ptUnder = $("ptUnder"), ptOver = $("ptOver"), prompterCurrent = $("prompterCurrent"),
           progressBar = $("progressBar"), playPauseBtn = $("playPauseBtn"), resetBtn = $("resetBtn"),
           seekRange = $("seekRange"), voiceEnabledChk = $("voiceEnabled"), cueListViewEl = $("cueListView"),
           audioDropzone = $("audioDropzone"), audioFileInput = $("audioFile"), audioFileInfo = $("audioFileInfo"),
@@ -833,8 +830,14 @@
             var t = document.createElement("span");
             t.className = "t";
             t.textContent = fmtTime(cue.start) + (cue.end != null ? "–" + fmtTime(cue.end) : "");
+            var txt = document.createElement("span");
+            txt.className = "item-text";
+            txt.textContent = cueCompact(cue.text) || "(無內容)";
+            var cd = document.createElement("span");
+            cd.className = "item-cd"; // 目前段落顯示「剩 mm:ss」、下一段顯示「mm:ss 後」,由 updateDisplay 每幀更新
             item.appendChild(t);
-            item.appendChild(document.createTextNode(cueCompact(cue.text) || "(無內容)"));
+            item.appendChild(txt);
+            item.appendChild(cd);
             cueListViewEl.appendChild(item);
           });
         }
@@ -845,6 +848,22 @@
             if (script.cues[i].start <= elapsed) idx = i; else break;
           }
           return idx;
+        }
+
+        // 每幀更新清單列上的倒數:目前段落「剩 mm:ss」(有結束時間才顯示)、下一段「mm:ss 後」
+        function setRowCd(i, cls, text) {
+          var el = cueListViewEl.querySelector('.item[data-idx="' + i + '"] .item-cd');
+          if (el) { el.className = "item-cd" + (cls ? " " + cls : ""); el.textContent = text || ""; }
+        }
+        function updateListCountdowns(idx, elapsed) {
+          var cur = idx >= 0 ? script.cues[idx] : null;
+          if (cur && cur.end != null && isFinite(cur.end)) setRowCd(idx, "remain", "剩 " + fmtTime(Math.max(0, cur.end - elapsed)));
+          else setRowCd(idx, "", "");
+          var next = script.cues[idx + 1];
+          if (next) {
+            var toNext = Math.max(0, next.start - elapsed);
+            setRowCd(idx + 1, "next" + (toNext <= (script.preRoll || 0) ? " imminent" : ""), fmtTime(toNext) + " 後");
+          }
         }
 
         function updateDisplay() {
@@ -878,32 +897,8 @@
             prompterCurrent.classList.add("empty");
           }
 
-          // 本段剩餘:僅在目前段落有設定結束時間(range)時顯示
-          if (cur && cur.end != null && isFinite(cur.end)) {
-            prompterRemain.textContent = "本段剩 " + fmtTime(Math.max(0, cur.end - elapsed));
-          } else {
-            prompterRemain.textContent = "";
-          }
-
-          // 聚焦當前 + 下一組:下一組醒目帶倒數;再後面的收成一行淡色「之後:…」
-          prompterNext.innerHTML = "";
-          var next1 = script.cues[idx + 1];
-          if (next1) {
-            var toNext = Math.max(0, next1.start - elapsed);
-            var first = document.createElement("div");
-            first.className = "pn-item pn-first";
-            first.textContent = "接下來:" + (cueCompact(next1.text) || "(無內容)") + " · " + fmtTime(toNext) + " 後";
-            if (toNext <= (script.preRoll || 0)) first.classList.add("imminent");
-            prompterNext.appendChild(first);
-
-            var rest = script.cues.slice(idx + 2, idx + 4).map(function (c) { return cueCompact(c.text) || "(無內容)"; });
-            if (rest.length) {
-              var after = document.createElement("div");
-              after.className = "pn-item";
-              after.textContent = "之後:" + rest.join("、");
-              prompterNext.appendChild(after);
-            }
-          }
+          // 倒數移到段落清單列上:目前段落顯示「剩 mm:ss」、下一段顯示「mm:ss 後」
+          updateListCountdowns(idx, elapsed);
 
           if (seekRange && audioEl && !seekRange.matches(":active")) seekRange.value = elapsed;
 
@@ -970,7 +965,6 @@
           leadInActive = true;
           setPlayingUI(true);
           prompterCurrent.classList.remove("empty");
-          prompterNext.textContent = plan.firstText ? "即將開始:" + plan.firstText : "";
           plan.events.forEach(function (e) {
             leadInTimers.push(setTimeout(function () { if (leadInActive) playClip(e.word); }, Math.round(e.at * 1000)));
           });
