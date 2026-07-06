@@ -118,6 +118,16 @@
       .cue-list-view .item-cd { flex: 0 0 auto; margin-left: auto; padding-left: 8px; font-family: var(--mono); font-size: 0.82rem; font-weight: 700; white-space: nowrap; }
       .cue-list-view .item-cd.remain { color: #f59e0b; }
       .cue-list-view .item-cd.next { color: var(--accent); }
+      .cue-list-view .item-cd.imminent { font-size: 0.95rem; }
+      /* 下一段進入預告倒數時,該列呼吸燈提示 */
+      @keyframes cueBreath {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
+        50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 30%, transparent); }
+      }
+      .cue-list-view .item.imminent { border-color: var(--accent); animation: cueBreath 0.9s ease-in-out infinite; }
+      @media (prefers-reduced-motion: reduce) {
+        .cue-list-view .item.imminent { animation: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent); }
+      }
       .note { font-size: 0.82rem; color: var(--text-muted); margin-top: 18px; line-height: 1.6; }
 
       /* 分享對話框:遮罩 + 置中卡片。用 [hidden] 覆蓋 display:flex(否則 hidden 屬性壓不過 flex) */
@@ -860,10 +870,17 @@
           if (cur && cur.end != null && isFinite(cur.end)) setRowCd(idx, "remain", "剩 " + fmtTime(Math.max(0, cur.end - elapsed)));
           else setRowCd(idx, "", "");
           var next = script.cues[idx + 1];
+          var immRow = null;
           if (next) {
             var toNext = Math.max(0, next.start - elapsed);
-            setRowCd(idx + 1, "next" + (toNext <= (script.preRoll || 0) ? " imminent" : ""), fmtTime(toNext) + " 後");
+            var imm = toNext <= (script.preRoll || 0);
+            setRowCd(idx + 1, "next" + (imm ? " imminent" : ""), fmtTime(toNext) + " 後");
+            if (imm) immRow = cueListViewEl.querySelector('.item[data-idx="' + (idx + 1) + '"]');
           }
+          // 下一段進入預告倒數時,該列亮呼吸燈;離開就移除
+          var prevImm = cueListViewEl.querySelector(".item.imminent");
+          if (prevImm && prevImm !== immRow) prevImm.classList.remove("imminent");
+          if (immRow) immRow.classList.add("imminent");
         }
 
         function updateDisplay() {
