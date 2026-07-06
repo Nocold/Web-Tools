@@ -93,8 +93,9 @@
       .pt-over { color: #fff; z-index: 3; clip-path: inset(0 100% 0 0); }
       .prompter-current { font-size: clamp(1.4rem, 5vw, 2.4rem); font-weight: 700; min-height: 1.4em; line-height: 1.3; }
       .prompter-current.empty { color: var(--text-muted); font-weight: 400; font-size: 1.2rem; }
-      /* **粗體** 在已是粗體的大字上要更突出:用主色 + 更重字重 */
-      .prompter-current strong { color: var(--accent); font-weight: 900; }
+      /* 第一行=大標(大字),第二行起=副標/註解(小字、淡色) */
+      .prompter-current .pc-main { display: block; }
+      .prompter-current .pc-sub { display: block; margin-top: 10px; font-size: 0.42em; font-weight: 500; line-height: 1.5; color: var(--text-muted); }
       .prompter-remain { margin-top: 8px; font-size: 1.05rem; font-weight: 600; color: #f59e0b; min-height: 1.3em; }
       .prompter-next { margin-top: 8px; min-height: 1.4em; display: flex; flex-direction: column; gap: 3px; align-items: center; }
       .prompter-next .pn-item { font-size: 0.9rem; color: var(--text-muted); font-family: var(--mono); }
@@ -117,6 +118,18 @@
       .cue-list-view .item .t { font-family: var(--mono); font-size: 0.78rem; color: var(--text-muted); margin-right: 8px; }
       .cue-list-view .item.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); font-weight: 700; }
       .note { font-size: 0.82rem; color: var(--text-muted); margin-top: 18px; line-height: 1.6; }
+
+      /* 分享對話框:遮罩 + 置中卡片。用 [hidden] 覆蓋 display:flex(否則 hidden 屬性壓不過 flex) */
+      .share-modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(0,0,0,0.5); }
+      .share-modal[hidden] { display: none; }
+      .share-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; max-width: 460px; width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,0.35); }
+      .share-box h3 { margin: 0 0 12px; font-size: 1.05rem; }
+      .share-link-row { display: flex; gap: 8px; margin: 14px 0 6px; }
+      .share-link-row input { flex: 1 1 auto; min-width: 0; font-family: var(--mono); font-size: 0.8rem; }
+      .share-actions { display: flex; gap: 10px; justify-content: space-between; margin-top: 18px; flex-wrap: wrap; }
+      .share-actions .btn { flex: 1 1 auto; }
+      /* 唯讀分享橫幅(收件方) */
+      .share-banner { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border: 1px solid var(--accent); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 0.88rem; color: var(--text); margin-bottom: 16px; }
 
       /* ---------- 手機版排版優化 ---------- */
       @media (max-width: 640px) {
@@ -201,7 +214,8 @@
       </div>
 
       <div id="viewEditor" hidden>
-        <div class="editor-nav">
+        <div class="share-banner" id="shareBanner" hidden>🔗 這是別人分享給你的提詞腳本(唯讀)。可直接在下方播放;若含背景音樂會自動載入,不需登入。</div>
+        <div class="editor-nav" id="editorNav">
           <button class="btn back-btn" id="backToManager" type="button">← 返回腳本清單</button>
           <div class="mode-tabs">
             <button class="mode-tab active" id="tabEdit" type="button">📝 腳本編輯</button>
@@ -247,7 +261,7 @@
 
           <section class="panel edit-block">
             <h3 class="block-title">📝 段落列表</h3>
-            <p class="hint" style="margin:-6px 0 10px">段落內容可多行(按 Enter 換行);用 <code>**文字**</code> 標記粗體,播放大字時會顯示換行與粗體。</p>
+            <p class="hint" style="margin:-6px 0 10px">段落內容可多行:<b>第一行</b>是大標(播放時大字顯示),<b>第二行起</b>是副標/註解(小字顯示)。</p>
             <div class="cue-list" id="cueList"></div>
             <div class="toolbar">
               <button class="btn" id="addCue" type="button">＋ 新增段落</button>
@@ -303,6 +317,22 @@
           <div class="cue-list-view" id="cueListView"></div>
         </div>
       </div>
+
+      <div class="share-modal" id="shareModal" hidden>
+        <div class="share-box">
+          <h3 id="shareTitle">分享腳本</h3>
+          <p class="hint" style="margin:0">把這條連結給對方,對方<b>不需登入 Google</b> 就能開啟播放(唯讀)。凡是拿到連結的人都看得到內容,請斟酌分享;不想再分享時按「停止分享」即可讓連結失效。</p>
+          <div class="share-link-row">
+            <input type="text" id="shareUrl" readonly placeholder="連結產生中…" aria-label="分享連結" />
+            <button class="btn" id="shareCopy" type="button">複製</button>
+          </div>
+          <div class="status" id="shareStatus"></div>
+          <div class="share-actions">
+            <button class="btn" id="shareStop" type="button">停止分享</button>
+            <button class="btn primary" id="shareClose" type="button">完成</button>
+          </div>
+        </div>
+      </div>
     </main>
 
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -354,20 +384,27 @@
           return (m < 10 ? "0" : "") + m + ":" + (sec < 10 ? "0" : "") + sec;
         }
 
-        // ---------------- 段落內容:多行 + **粗體** ----------------
+        // ---------------- 段落內容:第一行=大標,其後=副標/註解 ----------------
         function rowsFor(t) { return Math.min(8, (String(t || "").match(/\n/g) || []).length + 1); }
         function escapeHtml(s) {
           return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
-        // 大字提詞用:先跳脫 HTML,再把 **粗體** 轉 <strong>、換行轉 <br>
-        function renderCueMarkup(text) {
-          return escapeHtml(text)
-            .replace(/\*\*([^*\n]+?)\*\*/g, "<strong>$1</strong>")
-            .replace(/\n/g, "<br>");
+        // 拆成 { main: 第一行, sub: 其餘各行 }
+        function splitCue(text) {
+          var lines = String(text || "").split("\n");
+          return { main: lines[0] || "", sub: lines.slice(1).join("\n").replace(/\n+$/, "") };
         }
-        // 緊湊處(清單、預覽)用:去掉 ** 標記、換行併為空格
-        function plainCueText(text) {
-          return String(text || "").replace(/\*\*([^*\n]+?)\*\*/g, "$1").replace(/\s*\n\s*/g, " ").trim();
+        // 大字提詞用:第一行大標 + 其後小字副標(皆跳脫 HTML)
+        function renderCuePrompter(text) {
+          var p = splitCue(text);
+          var html = '<span class="pc-main">' + escapeHtml(p.main) + "</span>";
+          if (p.sub.trim()) html += '<span class="pc-sub">' + escapeHtml(p.sub).replace(/\n/g, "<br>") + "</span>";
+          return html;
+        }
+        // 緊湊處(清單、預覽)用:只取第一行(大標)
+        function cueCompact(text) {
+          var p = splitCue(text);
+          return p.main.trim() || p.sub.replace(/\n/g, " ").trim();
         }
 
         // ---------------- Cue list editor ----------------
@@ -411,7 +448,7 @@
 
             var textInp = document.createElement("textarea");
             textInp.className = "text-input text";
-            textInp.placeholder = "段落內容(可多行;用 **文字** 標記粗體)";
+            textInp.placeholder = "第一行:大標(大字)\n第二行起:副標/註解(小字)";
             textInp.value = cue.text || "";
             textInp.rows = rowsFor(cue.text);
             textInp.addEventListener("input", function () { cue.text = textInp.value; textInp.rows = rowsFor(textInp.value); });
@@ -599,7 +636,7 @@
           driveFileName = null;
           applyScriptToUI();
           resetPlayback();
-          if (script.audio && script.audio.driveFileId && driveAccessToken) loadAudioFromDrive(script.audio);
+          if (script.audio && script.audio.driveFileId && (driveAccessToken || shareMode)) loadAudioFromDrive(script.audio);
         }
 
         [countdownSecondsInput, voiceVolInput, preRollInput, scriptNameInput].forEach(function (el) {
@@ -621,8 +658,7 @@
           panelEdit.classList.add("show"); panelPlay.classList.remove("show");
           setEditMode(true);
         }
-        tabEdit.addEventListener("click", activateEditTab);
-        tabPlay.addEventListener("click", function () {
+        function goPlayTab() {
           readSettingsIntoScript();
           sortCues();
           tabPlay.classList.add("active"); tabEdit.classList.remove("active");
@@ -630,7 +666,9 @@
           setEditMode(false);
           renderCueListView();
           updateTotalDuration();
-        });
+        }
+        tabEdit.addEventListener("click", activateEditTab);
+        tabPlay.addEventListener("click", goPlayTab);
 
         // ---------------- Voice clips (reused from countdown-cue) ----------------
         var CLIP_BASE = "../../assets/audio/countdown/en/";
@@ -735,8 +773,14 @@
         }
 
         function loadAudioFromDrive(meta) {
-          renderAudioInfo("正在從雲端載入音樂「" + meta.name + "」…");
-          driveFetch("https://www.googleapis.com/drive/v3/files/" + meta.driveFileId + "?alt=media")
+          renderAudioInfo("正在載入音樂「" + meta.name + "」…");
+          // 分享(免登入)模式用 API key 讀公開檔;一般模式用登入 token。
+          var fetchP = shareMode
+            ? fetch(publicMediaUrl(meta.driveFileId)).then(function (r) {
+                if (!r.ok) throw new Error("音樂載入失敗(" + r.status + ")"); return r;
+              })
+            : driveFetch("https://www.googleapis.com/drive/v3/files/" + meta.driveFileId + "?alt=media");
+          fetchP
             .then(function (r) { return r.blob(); })
             .then(function (blob) {
               audioFile = null;
@@ -786,7 +830,7 @@
             t.className = "t";
             t.textContent = fmtTime(cue.start) + (cue.end != null ? "–" + fmtTime(cue.end) : "");
             item.appendChild(t);
-            item.appendChild(document.createTextNode(plainCueText(cue.text) || "(無內容)"));
+            item.appendChild(document.createTextNode(cueCompact(cue.text) || "(無內容)"));
             cueListViewEl.appendChild(item);
           });
         }
@@ -822,7 +866,7 @@
           }
           var cur = idx >= 0 ? script.cues[idx] : null;
           if (cur) {
-            if (cur.text) prompterCurrent.innerHTML = renderCueMarkup(cur.text);
+            if (cur.text) prompterCurrent.innerHTML = renderCuePrompter(cur.text);
             else prompterCurrent.textContent = "(無內容)";
             prompterCurrent.classList.remove("empty");
           } else {
@@ -845,10 +889,10 @@
             line.className = "pn-item" + (i === 0 ? " pn-first" : "");
             if (i === 0) {
               var toNext = Math.max(0, nc.start - elapsed);
-              line.textContent = "接下來:" + (plainCueText(nc.text) || "(無內容)") + " · " + fmtTime(toNext) + " 後";
+              line.textContent = "接下來:" + (cueCompact(nc.text) || "(無內容)") + " · " + fmtTime(toNext) + " 後";
               if (toNext <= (script.preRoll || 0)) line.classList.add("imminent");
             } else {
-              line.textContent = fmtTime(nc.start) + "　" + (plainCueText(nc.text) || "(無內容)");
+              line.textContent = fmtTime(nc.start) + "　" + (cueCompact(nc.text) || "(無內容)");
             }
             prompterNext.appendChild(line);
           });
@@ -996,6 +1040,14 @@
         var DRIVE_FOLDER_NAME = "WebTools-CuePrompter";
         // 站長已在 Google Cloud Console 申請此 Client ID 並設定好本站網域,整站共用,訪客不可自行替換。
         var DRIVE_CLIENT_ID = "895127650907-r62nm1hfi7f4isf4odb6fqrgfdi5fdcm.apps.googleusercontent.com";
+        // 瀏覽器 API 金鑰(同專案):已在 GCP 限制「只准 nocold.github.io」+「只准 Drive API」。
+        // 僅能讀「已設為公開(anyone reader)」的檔案,用於收件方免登入開啟分享的腳本。
+        var DRIVE_API_KEY = "AIzaSyCSxufXWoFmtODaaq1egLEz0rfcYOQbKgg";
+        function publicMediaUrl(fileId) {
+          return "https://www.googleapis.com/drive/v3/files/" + fileId + "?alt=media&key=" + DRIVE_API_KEY;
+        }
+        // 收件方(免登入)唯讀模式:由網址 ?share=<檔案ID> 進入,靠 API key 讀公開檔。
+        var shareMode = false;
 
         var viewLogin = $("viewLogin"), viewManager = $("viewManager"), viewEditor = $("viewEditor");
         var loginBtn = $("loginBtn"), loginStatus = $("loginStatus");
@@ -1212,6 +1264,13 @@
               btn.textContent = f.name.replace(/\.json$/i, "") + "  ·  " + new Date(f.modifiedTime).toLocaleString();
               btn.addEventListener("click", function () { openDriveFile(f.id, f.name); });
 
+              var shareBtn = document.createElement("button");
+              shareBtn.type = "button";
+              shareBtn.className = "mini-btn";
+              shareBtn.title = "分享連結(對方免登入即可播放)";
+              shareBtn.textContent = "🔗";
+              shareBtn.addEventListener("click", function () { openShareDialog(f.id, f.name); });
+
               var dlBtn = document.createElement("button");
               dlBtn.type = "button";
               dlBtn.className = "mini-btn";
@@ -1247,6 +1306,7 @@
               });
 
               row.appendChild(btn);
+              row.appendChild(shareBtn);
               row.appendChild(dlBtn);
               row.appendChild(rmBtn);
               managerFilesEl.appendChild(row);
@@ -1440,10 +1500,132 @@
             });
         }
 
+        // ---------------- 分享連結(分享方:設公開 + 產生連結;收件方:免登入唯讀) ----------------
+        var shareModal = $("shareModal"), shareUrlInput = $("shareUrl"), shareTitleEl = $("shareTitle"),
+          shareStatusEl = $("shareStatus"), shareCopyBtn = $("shareCopy"), shareStopBtn = $("shareStop"),
+          shareCloseBtn = $("shareClose");
+        var shareCtx = null; // { scriptId, audioId, name }
+
+        function setShareStatus(msg, kind) {
+          shareStatusEl.textContent = msg || "";
+          shareStatusEl.className = "status" + (kind ? " " + kind : "");
+        }
+        function permsUrl(fileId) { return "https://www.googleapis.com/drive/v3/files/" + fileId + "/permissions"; }
+
+        // 把檔案設為「知道連結的人都能讀」(已是公開就略過,避免重複建立)
+        function ensurePublic(fileId) {
+          return driveFetch(permsUrl(fileId) + "?fields=permissions(id,type)")
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              if ((data.permissions || []).some(function (p) { return p.type === "anyone"; })) return;
+              return driveFetch(permsUrl(fileId), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ role: "reader", type: "anyone" }),
+              });
+            });
+        }
+        // 收回所有 anyone 權限,讓分享連結失效
+        function revokePublic(fileId) {
+          return driveFetch(permsUrl(fileId) + "?fields=permissions(id,type)")
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              var anyone = (data.permissions || []).filter(function (p) { return p.type === "anyone"; });
+              return Promise.all(anyone.map(function (p) {
+                return driveFetch(permsUrl(fileId) + "/" + p.id, { method: "DELETE" });
+              }));
+            });
+        }
+        function shareUrlFor(scriptId) {
+          return location.origin + location.pathname + "?share=" + scriptId;
+        }
+
+        function openShareDialog(scriptId, name) {
+          shareCtx = { scriptId: scriptId, audioId: null, name: name };
+          shareTitleEl.textContent = "分享腳本「" + name.replace(/\.json$/i, "") + "」";
+          shareUrlInput.value = "";
+          setShareStatus("正在設定分享權限…");
+          shareModal.hidden = false;
+          // 先讀腳本內容找出有沒有綁音樂,腳本與音樂都要設公開,否則對方載入音樂會失敗
+          driveFetch("https://www.googleapis.com/drive/v3/files/" + scriptId + "?alt=media")
+            .then(function (r) { return r.json(); })
+            .then(function (obj) {
+              shareCtx.audioId = (obj && obj.audio && obj.audio.driveFileId) || null;
+              var jobs = [ensurePublic(scriptId)];
+              if (shareCtx.audioId) jobs.push(ensurePublic(shareCtx.audioId));
+              return Promise.all(jobs);
+            })
+            .then(function () {
+              shareUrlInput.value = shareUrlFor(scriptId);
+              setShareStatus("✓ 已開啟分享,複製連結給對方即可", "ok");
+            })
+            .catch(function (err) {
+              if (isAuthErr(err)) { shareModal.hidden = true; reauth(); return; }
+              setShareStatus("✗ 設定分享失敗:" + err.message, "error");
+            });
+        }
+
+        shareCopyBtn.addEventListener("click", function () {
+          if (!shareUrlInput.value) return;
+          var fallback = function () { shareUrlInput.select(); try { document.execCommand("copy"); } catch (e) {} };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(shareUrlInput.value)
+              .then(function () { setShareStatus("✓ 已複製連結", "ok"); }, fallback);
+          } else { fallback(); setShareStatus("✓ 已複製連結", "ok"); }
+        });
+        shareStopBtn.addEventListener("click", function () {
+          if (!shareCtx) return;
+          if (!confirm("停止分享後,先前發出去的連結會立刻失效(對方無法再開啟)。確定要停止分享嗎?")) return;
+          setShareStatus("正在停止分享…");
+          var jobs = [revokePublic(shareCtx.scriptId)];
+          if (shareCtx.audioId) jobs.push(revokePublic(shareCtx.audioId));
+          Promise.all(jobs)
+            .then(function () { shareUrlInput.value = ""; setShareStatus("✓ 已停止分享,連結已失效", "ok"); })
+            .catch(function (err) {
+              if (isAuthErr(err)) { shareModal.hidden = true; reauth(); return; }
+              setShareStatus("✗ 停止分享失敗:" + err.message, "error");
+            });
+        });
+        shareCloseBtn.addEventListener("click", function () { shareModal.hidden = true; shareCtx = null; });
+        shareModal.addEventListener("click", function (e) {
+          if (e.target === shareModal) { shareModal.hidden = true; shareCtx = null; }
+        });
+
+        // 收件方:由 ?share=<檔案ID> 進入,免登入、唯讀播放
+        function enterShareMode(fileId) {
+          shareMode = true;
+          var intro = $("pageIntro");
+          if (intro) intro.hidden = true;
+          $("shareBanner").hidden = false;
+          showView("editor");
+          $("editorNav").hidden = true; // 收件方沒有「返回清單 / 編輯」分頁
+          goPlayTab(); // 先切到唯讀播放面板,載入中/失敗都不露出編輯介面
+          prompterCurrent.textContent = "載入中…";
+          prompterCurrent.classList.remove("empty");
+          fetch(publicMediaUrl(fileId))
+            .then(function (r) {
+              if (!r.ok) return r.text().then(function (t) { throw new Error(r.status + " " + (t || "").slice(0, 120)); });
+              return r.json();
+            })
+            .then(function (obj) {
+              loadScriptObject(obj); // shareMode 為真 → 自動用 API key 載入音樂
+              document.title = (obj.name || "分享腳本") + " · 演出提詞機";
+              goPlayTab();
+            })
+            .catch(function (err) {
+              prompterCurrent.textContent = "✗ 無法載入";
+              var banner = $("shareBanner");
+              banner.textContent = "✗ 無法載入這份分享的腳本(" + err.message + ")。可能已被對方停止分享,或連結不正確。";
+              banner.style.borderColor = "#e5484d";
+            });
+        }
+
         // ---------------- Init ----------------
         applyScriptToUI();
         renderAudioInfo();
-        tryAutoLogin();
+        var shareParam = new URLSearchParams(location.search).get("share");
+        if (shareParam) enterShareMode(shareParam);
+        else tryAutoLogin();
       })();
     </script>
     <script defer src="../../assets/js/version.js"></script>
