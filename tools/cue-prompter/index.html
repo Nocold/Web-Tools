@@ -393,8 +393,9 @@
           return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
         // 拆成 { main: 第一行, sub: 其餘各行 }
+        // 舊腳本可能殘留已停用的 **粗體** 標記,顯示時一併去掉,避免露出 ** 雜訊
         function splitCue(text) {
-          var lines = String(text || "").split("\n");
+          var lines = String(text || "").replace(/\*\*/g, "").split("\n");
           return { main: lines[0] || "", sub: lines.slice(1).join("\n").replace(/\n+$/, "") };
         }
         // 大字提詞用:第一行大標 + 其後小字副標(皆跳脫 HTML)
