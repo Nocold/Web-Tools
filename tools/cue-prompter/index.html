@@ -118,15 +118,17 @@
       .cue-list-view .item-cd { flex: 0 0 auto; margin-left: auto; padding-left: 8px; font-family: var(--mono); font-size: 0.82rem; font-weight: 700; white-space: nowrap; }
       .cue-list-view .item-cd.remain { color: #f59e0b; }
       .cue-list-view .item-cd.next { color: var(--accent); }
-      .cue-list-view .item-cd.imminent { font-size: 0.95rem; }
-      /* 下一段進入預告倒數時,該列呼吸燈提示 */
+      /* 下一段進入預告倒數時:該列背景脈動 + 倒數字閃爍,明顯提示即將換段 */
       @keyframes cueBreath {
-        0%, 100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
-        50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 30%, transparent); }
+        0%, 100% { background: var(--surface-2); box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
+        50% { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 38%, transparent); }
       }
-      .cue-list-view .item.imminent { border-color: var(--accent); animation: cueBreath 0.9s ease-in-out infinite; }
+      @keyframes cdBlink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0.15; } }
+      .cue-list-view .item.imminent { border-color: var(--accent); animation: cueBreath 0.85s ease-in-out infinite; }
+      .cue-list-view .item-cd.imminent { font-size: 1rem; animation: cdBlink 0.7s steps(1, end) infinite; }
       @media (prefers-reduced-motion: reduce) {
-        .cue-list-view .item.imminent { animation: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent); }
+        .cue-list-view .item.imminent { animation: none; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--surface)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+        .cue-list-view .item-cd.imminent { animation: none; }
       }
       .note { font-size: 0.82rem; color: var(--text-muted); margin-top: 18px; line-height: 1.6; }
 
