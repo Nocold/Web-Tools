@@ -141,8 +141,15 @@
       .share-link-row input { flex: 1 1 auto; min-width: 0; font-family: var(--mono); font-size: 0.8rem; }
       .share-actions { display: flex; gap: 10px; justify-content: space-between; margin-top: 18px; flex-wrap: wrap; }
       .share-actions .btn { flex: 1 1 auto; }
-      /* 唯讀分享橫幅(收件方) */
+      /* 唯讀分享橫幅(收件方)/ 協作模式橫幅 */
       .share-banner { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border: 1px solid var(--accent); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 0.88rem; color: var(--text); margin-bottom: 16px; }
+      .share-sep { border: none; border-top: 1px solid var(--border); margin: 20px 0 16px; }
+      .share-subhead { margin: 0 0 8px; font-size: 0.98rem; font-weight: 700; }
+      .collab-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+      .collab-row { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
+      .collab-row .who { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); }
+      .collab-row .rm { border: none; background: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; padding: 2px 6px; border-radius: 6px; }
+      .collab-row .rm:hover { background: var(--surface); color: #e5484d; }
 
       /* ---------- 手機版排版優化 ---------- */
       @media (max-width: 640px) {
@@ -216,6 +223,7 @@
         <label class="field-label" style="margin:0 0 4px">我的腳本</label>
         <div class="toolbar">
           <button class="btn primary" id="managerNewScript" type="button">🆕 新增腳本</button>
+          <button class="btn" id="managerOpenShared" type="button">📥 開啟共用腳本</button>
           <button class="btn" id="managerImport" type="button">⬆ 從備份還原</button>
           <input type="file" id="loadLocalFile" accept="application/json,.json" hidden />
           <button class="btn" id="managerRefresh" type="button">🔄 重新整理</button>
@@ -228,6 +236,7 @@
 
       <div id="viewEditor" hidden>
         <div class="share-banner" id="shareBanner" hidden>🔗 這是別人分享給你的提詞腳本(唯讀)。可直接在下方播放;若含背景音樂會自動載入,不需登入。</div>
+        <div class="share-banner" id="collabBanner" hidden>🤝 協作模式:你正在編輯別人共用給你的腳本,儲存會寫回同一份。背景音樂唯讀(由擁有者設定)。</div>
         <div class="editor-nav" id="editorNav">
           <button class="btn back-btn" id="backToManager" type="button">← 返回腳本清單</button>
           <div class="mode-tabs">
@@ -342,6 +351,19 @@
           <div class="status" id="shareStatus"></div>
           <div class="share-actions">
             <button class="btn" id="shareStop" type="button">停止分享</button>
+          </div>
+
+          <hr class="share-sep" />
+          <h4 class="share-subhead">🤝 邀請協作編輯</h4>
+          <p class="hint" style="margin:0">輸入對方的 Google 帳號(Gmail),對方登入後即可從「開啟共用腳本」開啟這份、編輯後存回同一份。不是即時同編,同一時間請一人編輯。</p>
+          <div class="share-link-row">
+            <input type="email" id="collabEmail" placeholder="collaborator@gmail.com" aria-label="協作者 Google 帳號" />
+            <button class="btn" id="collabInvite" type="button">邀請</button>
+          </div>
+          <div class="status" id="collabStatus"></div>
+          <div class="collab-list" id="collabList"></div>
+
+          <div class="share-actions" style="margin-top:18px">
             <button class="btn primary" id="shareClose" type="button">完成</button>
           </div>
         </div>
@@ -349,6 +371,8 @@
     </main>
 
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- Google Picker:協作者用它從「與我共用」開啟擁有者分享的腳本(免放大權限到整個雲端硬碟) -->
+    <script src="https://apis.google.com/js/api.js" async defer></script>
     <script>
       (function () {
         var $ = function (id) { return document.getElementById(id); };
@@ -1066,11 +1090,16 @@
         // 瀏覽器 API 金鑰(同專案):已在 GCP 限制「只准 nocold.github.io」+「只准 Drive API」。
         // 僅能讀「已設為公開(anyone reader)」的檔案,用於收件方免登入開啟分享的腳本。
         var DRIVE_API_KEY = "AIzaSyCSxufXWoFmtODaaq1egLEz0rfcYOQbKgg";
+        // GCP 專案編號(= Client ID 開頭那串),Picker 用它把選中的共用檔授權給本 App
+        var DRIVE_PROJECT_NUMBER = "895127650907";
         function publicMediaUrl(fileId) {
           return "https://www.googleapis.com/drive/v3/files/" + fileId + "?alt=media&key=" + DRIVE_API_KEY;
         }
         // 收件方(免登入)唯讀模式:由網址 ?share=<檔案ID> 進入,靠 API key 讀公開檔。
         var shareMode = false;
+        // 協作模式:目前開著的是「別人共用給我、可編輯」的檔(用 Picker 開的),存檔要直接 PATCH 原檔、
+        // 不碰自己的資料夾、音樂唯讀。loadedModifiedTime 記錄開檔時的版本時間,存檔前用來偵測他人改動(衝突防呆)。
+        var currentFileIsShared = false, loadedModifiedTime = null;
 
         var viewLogin = $("viewLogin"), viewManager = $("viewManager"), viewEditor = $("viewEditor");
         var loginBtn = $("loginBtn"), loginStatus = $("loginStatus");
@@ -1345,12 +1374,16 @@
 
         function openDriveFile(fileId, name) {
           setManagerStatus("正在載入「" + name + "」…");
-          driveFetch("https://www.googleapis.com/drive/v3/files/" + fileId + "?alt=media")
-            .then(function (r) { return r.json(); })
-            .then(function (obj) {
-              loadScriptObject(obj);
+          Promise.all([
+            driveFetch("https://www.googleapis.com/drive/v3/files/" + fileId + "?alt=media").then(function (r) { return r.json(); }),
+            driveFetch("https://www.googleapis.com/drive/v3/files/" + fileId + "?fields=modifiedTime").then(function (r) { return r.json(); }),
+          ])
+            .then(function (res) {
+              loadScriptObject(res[0]);
               driveFileId = fileId;
               driveFileName = name;
+              loadedModifiedTime = res[1].modifiedTime || null; // 記版本供存檔前衝突偵測
+              setCollabMode(false); // 這是自己的檔
               setDriveStatus("");
               showView("editor");
               activateEditTab();
@@ -1396,6 +1429,8 @@
             try {
               var obj = JSON.parse(reader.result);
               loadScriptObject(obj); // driveFileId 會設為 null,成為尚未存雲端的新腳本
+              loadedModifiedTime = null;
+              setCollabMode(false);
               showView("editor");
               activateEditTab();
               setDriveStatus("✓ 已從備份「" + file.name + "」還原,尚未存到雲端,請按「儲存」", "ok");
@@ -1411,6 +1446,8 @@
           script = defaultScript();
           driveFileId = null;
           driveFileName = null;
+          loadedModifiedTime = null;
+          setCollabMode(false);
           clearAudio();
           applyScriptToUI();
           resetPlayback();
@@ -1481,6 +1518,27 @@
           sortCues();
           var name = (script.name || "cue-script") + ".json";
           driveSaveBtn.disabled = true;
+
+          // 協作模式:直接寫回原檔(不碰自己的資料夾、音樂唯讀不上傳),存前偵測他人改動
+          if (currentFileIsShared) {
+            var content = JSON.stringify(script, null, 2);
+            setDriveStatus("正在檢查版本…");
+            checkConflictBeforeOverwrite(driveFileId).then(function (ok) {
+              if (!ok) { setDriveStatus("已取消儲存,未覆蓋", ""); return; }
+              setDriveStatus("正在儲存回共用腳本…");
+              return updateDriveFile(driveFileId, name, content)
+                .then(function () { return refreshModTime(driveFileId); })
+                .then(function () {
+                  driveFileName = name;
+                  setDriveStatus("✓ 已儲存回共用腳本(擁有者與其他協作者會看到更新)", "ok");
+                });
+            }).catch(function (err) {
+              if (isAuthErr(err)) { reauth(); return; }
+              setDriveStatus("✗ " + err.message, "error");
+            }).finally(function () { driveSaveBtn.disabled = false; });
+            return;
+          }
+
           ensureDriveFolder().then(function (folderId) {
             // 先上傳(尚未上傳的)音樂,拿到 driveFileId 後才把腳本 JSON 序列化存檔
             var pre;
@@ -1494,11 +1552,33 @@
           }).then(function () {
             setDriveStatus("✓ 已儲存至雲端硬碟", "ok");
           }).catch(function (err) {
+            if (err && err.message === "__CANCELLED__") { setDriveStatus("已取消儲存,未覆蓋", ""); return; }
             setDriveStatus("✗ " + err.message, "error");
           }).finally(function () {
             driveSaveBtn.disabled = false;
           });
         });
+
+        // 存檔前偵測「開檔後被別人改過」;回傳 Promise<boolean>(false=使用者選擇取消)
+        function checkConflictBeforeOverwrite(fileId) {
+          if (!loadedModifiedTime) return Promise.resolve(true);
+          return driveFetch("https://www.googleapis.com/drive/v3/files/" + fileId + "?fields=modifiedTime")
+            .then(function (r) { return r.json(); })
+            .then(function (meta) {
+              if (meta.modifiedTime && meta.modifiedTime !== loadedModifiedTime) {
+                return confirm(
+                  "這份腳本在你開啟後被改過了(可能是擁有者或其他協作者存了新版)。\n\n" +
+                  "按「確定」用你目前畫面的版本覆蓋掉對方的變更;按「取消」放棄儲存(建議先重新開啟取得最新版)。"
+                );
+              }
+              return true;
+            });
+        }
+        function refreshModTime(fileId) {
+          return driveFetch("https://www.googleapis.com/drive/v3/files/" + fileId + "?fields=modifiedTime")
+            .then(function (r) { return r.json(); })
+            .then(function (meta) { loadedModifiedTime = meta.modifiedTime || loadedModifiedTime; });
+        }
 
         function saveScriptJson(folderId, name) {
           var content = JSON.stringify(script, null, 2);
@@ -1513,14 +1593,21 @@
                 targetId = overwrite ? conflict.id : null;
               }
               if (targetId) {
-                return updateDriveFile(targetId, name, content).then(function () {
+                // 只有覆蓋「目前開著的那份」才需要衝突偵測(同名覆蓋到別份沒有基準時間可比)
+                var guard = (targetId === driveFileId) ? checkConflictBeforeOverwrite(targetId) : Promise.resolve(true);
+                return guard.then(function (ok) {
+                  if (!ok) throw new Error("__CANCELLED__");
+                  return updateDriveFile(targetId, name, content);
+                }).then(function () {
                   driveFileId = targetId;
                   driveFileName = name;
+                  return refreshModTime(targetId);
                 });
               }
               return createDriveFile(folderId, name, content).then(function (file) {
                 driveFileId = file.id;
                 driveFileName = name;
+                return refreshModTime(file.id);
               });
             });
         }
@@ -1570,7 +1657,10 @@
           shareTitleEl.textContent = "分享腳本「" + name.replace(/\.json$/i, "") + "」";
           shareUrlInput.value = "";
           setShareStatus("正在設定分享權限…");
+          $("collabEmail").value = "";
+          setCollabStatus("");
           shareModal.hidden = false;
+          renderCollabList(); // 只需 scriptId,可立即列出目前協作者
           // 先讀腳本內容找出有沒有綁音樂,腳本與音樂都要設公開,否則對方載入音樂會失敗
           driveFetch("https://www.googleapis.com/drive/v3/files/" + scriptId + "?alt=media")
             .then(function (r) { return r.json(); })
@@ -1644,6 +1734,159 @@
               banner.style.borderColor = "#e5484d";
             });
         }
+
+        // ---------------- 協作編輯:擁有者邀請 / 協作者用 Picker 開檔 ----------------
+        var collabStatusEl = $("collabStatus"), collabListEl = $("collabList"),
+          collabEmailInput = $("collabEmail"), collabInviteBtn = $("collabInvite"),
+          collabBanner = $("collabBanner"), managerOpenSharedBtn = $("managerOpenShared");
+
+        function setCollabStatus(msg, kind) {
+          collabStatusEl.textContent = msg || "";
+          collabStatusEl.className = "status" + (kind ? " " + kind : "");
+        }
+
+        // 協作模式切換:顯示橫幅、把背景音樂設為唯讀(協作者不換擁有者的音樂)
+        function setCollabMode(on) {
+          currentFileIsShared = on;
+          collabBanner.hidden = !on;
+          audioDropzone.style.pointerEvents = on ? "none" : "";
+          audioDropzone.style.opacity = on ? "0.5" : "";
+          if (audioRemoveBtn) audioRemoveBtn.disabled = on;
+        }
+
+        function grantPermission(fileId, email, role) {
+          return driveFetch(permsUrl(fileId) + "?sendNotificationEmail=true", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ role: role, type: "user", emailAddress: email }),
+          });
+        }
+        // 移除某 email 在該檔的所有權限
+        function removeCollabFromFile(fileId, email) {
+          return driveFetch(permsUrl(fileId) + "?fields=permissions(id,type,emailAddress)")
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              var hits = (data.permissions || []).filter(function (p) { return p.type === "user" && p.emailAddress === email; });
+              return Promise.all(hits.map(function (p) {
+                return driveFetch(permsUrl(fileId) + "/" + p.id, { method: "DELETE" });
+              }));
+            });
+        }
+
+        function renderCollabList() {
+          collabListEl.innerHTML = "";
+          if (!shareCtx || !shareCtx.scriptId) return;
+          driveFetch(permsUrl(shareCtx.scriptId) + "?fields=permissions(id,type,role,emailAddress,displayName)")
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              // 只列出被邀請的人(type=user 且非擁有者本人)
+              var editors = (data.permissions || []).filter(function (p) { return p.type === "user" && p.role !== "owner"; });
+              if (!editors.length) { collabListEl.innerHTML = '<div class="hint">目前沒有協作者。</div>'; return; }
+              editors.forEach(function (p) {
+                var row = document.createElement("div");
+                row.className = "collab-row";
+                var who = document.createElement("span");
+                who.className = "who";
+                who.textContent = (p.emailAddress || p.displayName || "(未知帳號)") + (p.role === "reader" ? "(唯讀)" : "");
+                var rm = document.createElement("button");
+                rm.type = "button"; rm.className = "rm"; rm.textContent = "✕"; rm.title = "移除協作者";
+                rm.addEventListener("click", function () {
+                  if (!p.emailAddress) { setCollabStatus("這筆權限沒有 email,無法自動移除", "error"); return; }
+                  if (!confirm("移除「" + p.emailAddress + "」的存取權限?對方將無法再開啟這份腳本。")) return;
+                  setCollabStatus("正在移除…");
+                  var jobs = [removeCollabFromFile(shareCtx.scriptId, p.emailAddress)];
+                  if (shareCtx.audioId) jobs.push(removeCollabFromFile(shareCtx.audioId, p.emailAddress));
+                  Promise.all(jobs)
+                    .then(function () { setCollabStatus("✓ 已移除", "ok"); renderCollabList(); })
+                    .catch(function (err) { if (isAuthErr(err)) { shareModal.hidden = true; reauth(); return; } setCollabStatus("✗ " + err.message, "error"); });
+                });
+                row.appendChild(who); row.appendChild(rm);
+                collabListEl.appendChild(row);
+              });
+            })
+            .catch(function (err) { if (isAuthErr(err)) { shareModal.hidden = true; reauth(); return; } setCollabStatus("✗ 讀取協作者清單失敗:" + err.message, "error"); });
+        }
+
+        collabInviteBtn.addEventListener("click", function () {
+          if (!shareCtx || !shareCtx.scriptId) return;
+          var email = (collabEmailInput.value || "").trim();
+          if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setCollabStatus("請輸入正確的 Google 帳號(email)", "error"); return; }
+          setCollabStatus("正在邀請「" + email + "」…");
+          // 腳本給可編輯(writer);音樂給唯讀(reader,協作者只需播放)
+          var jobs = [grantPermission(shareCtx.scriptId, email, "writer")];
+          if (shareCtx.audioId) jobs.push(grantPermission(shareCtx.audioId, email, "reader"));
+          Promise.all(jobs)
+            .then(function () {
+              collabEmailInput.value = "";
+              setCollabStatus("✓ 已邀請,Google 會寄通知信給對方。對方登入後按「開啟共用腳本」即可編輯。", "ok");
+              renderCollabList();
+            })
+            .catch(function (err) {
+              if (isAuthErr(err)) { shareModal.hidden = true; reauth(); return; }
+              setCollabStatus("✗ 邀請失敗:" + err.message, "error");
+            });
+        });
+
+        // ---- 協作者:用 Google Picker 從「與我共用」開啟擁有者分享的腳本 ----
+        var pickerReady = false;
+        function loadPickerApi(cb) {
+          if (pickerReady) { cb(); return; }
+          if (!window.gapi) { setManagerStatus("✗ Google 元件尚未載入完成,請稍候再試", "error"); return; }
+          gapi.load("picker", { callback: function () { pickerReady = true; cb(); } });
+        }
+        function onPickerAction(data) {
+          if (!data || !window.google || !google.picker) return;
+          if (data.action !== google.picker.Action.PICKED) return;
+          var doc = data.docs && data.docs[0];
+          if (doc) openPickedFile(doc.id, doc.name);
+        }
+        function openSharedViaPicker() {
+          if (!driveAccessToken) { setManagerStatus("請先登入 Google", "error"); return; }
+          setManagerStatus("正在開啟 Google 檔案選擇器…");
+          loadPickerApi(function () {
+            try {
+              var view = new google.picker.DocsView(google.picker.ViewId.DOCS)
+                .setMimeTypes("application/json")
+                .setOwnedByMe(false) // 只看「與我共用」(非我擁有)的檔
+                .setMode(google.picker.DocsViewMode.LIST);
+              var picker = new google.picker.PickerBuilder()
+                .setDeveloperKey(DRIVE_API_KEY)
+                .setOAuthToken(driveAccessToken)
+                .setAppId(DRIVE_PROJECT_NUMBER) // drive.file 下,選中的檔要靠 appId 授權給本 App 存取
+                .setTitle("選擇共用給你的提詞腳本")
+                .addView(view)
+                .setCallback(onPickerAction)
+                .build();
+              picker.setVisible(true);
+              setManagerStatus("");
+            } catch (e) {
+              setManagerStatus("✗ 無法開啟選擇器:" + e.message, "error");
+            }
+          });
+        }
+        function openPickedFile(fileId, name) {
+          setManagerStatus("正在開啟共用腳本「" + name + "」…");
+          Promise.all([
+            driveFetch("https://www.googleapis.com/drive/v3/files/" + fileId + "?alt=media").then(function (r) { return r.json(); }),
+            driveFetch("https://www.googleapis.com/drive/v3/files/" + fileId + "?fields=modifiedTime,name,capabilities(canEdit)").then(function (r) { return r.json(); }),
+          ])
+            .then(function (res) {
+              var obj = res[0], meta = res[1];
+              loadScriptObject(obj); // 協作者有讀取權,會用 token 載入音樂
+              driveFileId = fileId;
+              driveFileName = meta.name || name;
+              loadedModifiedTime = meta.modifiedTime || null;
+              setCollabMode(true);
+              setManagerStatus("");
+              showView("editor");
+              activateEditTab();
+              var canEdit = meta.capabilities ? meta.capabilities.canEdit !== false : true;
+              if (canEdit) setDriveStatus("✓ 已開啟共用腳本,編輯後按「儲存」寫回同一份", "ok");
+              else setDriveStatus("⚠ 你對這份只有檢視權限,儲存會失敗——請擁有者把你設為可編輯", "error");
+            })
+            .catch(function (err) { if (isAuthErr(err)) { reauth(); return; } setManagerStatus("✗ 開啟共用腳本失敗:" + err.message, "error"); });
+        }
+        managerOpenSharedBtn.addEventListener("click", openSharedViaPicker);
 
         // ---------------- Init ----------------
         applyScriptToUI();
