@@ -57,6 +57,14 @@ window.TOOLS = [
     keywords: ["mp3", "cut", "split", "trim", "clip", "切割", "剪輯", "片段", "音訊"],
   },
   {
+    slug: "mp3-multi-split",
+    name: "MP3 多段切割",
+    description: "依時間點一次切成多段 MP3,可整包 ZIP 下載",
+    icon: "🎼",
+    category: "影音",
+    keywords: ["mp3", "split", "multi", "batch", "tracklist", "chapter", "zip", "切割", "分段", "分軌", "多段", "批次", "音訊", "音樂"],
+  },
+  {
     slug: "timestamp",
     name: "時間戳轉換",
     description: "Unix 時間戳與日期時間互轉",
