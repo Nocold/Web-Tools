@@ -16,6 +16,8 @@
 
 - 每個工具頁的 `<script>` 要包 IIFE,避免用 `window` 保留字當全域變數(踩過雷)。
 - 影片轉 MP3 用 ffmpeg.wasm(無建置載入),MP3 切割用串流複製(無損)。
+- 多檔輸出要打包時,用自寫的 STORE(不壓縮)ZIP 產生器,不引入相依套件——
+  音訊/圖片本來就壓過了,壓縮沒好處。可參考 `tools/mp3-multi-split/`。
 
 ## 部署:GitHub Actions + 版本標記
 
