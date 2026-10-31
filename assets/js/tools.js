@@ -65,6 +65,14 @@ window.TOOLS = [
     keywords: ["mp3", "split", "multi", "batch", "tracklist", "chapter", "zip", "切割", "分段", "分軌", "多段", "批次", "音訊", "音樂"],
   },
   {
+    slug: "voice-call",
+    name: "語音通話",
+    description: "兩人瀏覽器直接語音通話,分享連結即可接通(P2P 加密)",
+    icon: "📞",
+    category: "影音",
+    keywords: ["voice", "call", "webrtc", "p2p", "通話", "語音", "對講", "麥克風", "即時"],
+  },
+  {
     slug: "timestamp",
     name: "時間戳轉換",
     description: "Unix 時間戳與日期時間互轉",
