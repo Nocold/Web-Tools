@@ -67,10 +67,10 @@ window.TOOLS = [
   {
     slug: "voice-call",
     name: "語音通話",
-    description: "多人瀏覽器直接語音通話,分享連結即可接通(P2P 加密)",
+    description: "多人瀏覽器直接語音通話,房名固定、隨時進出(P2P 加密)",
     icon: "📞",
     category: "影音",
-    keywords: ["voice", "call", "webrtc", "p2p", "mesh", "通話", "語音", "對講", "麥克風", "即時", "多人", "群組"],
+    keywords: ["voice", "call", "webrtc", "p2p", "mesh", "通話", "語音", "對講", "麥克風", "即時", "多人", "群組", "房間", "room"],
   },
   {
     slug: "timestamp",
