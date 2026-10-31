@@ -9,39 +9,51 @@
     <link rel="icon" type="image/png" sizes="32x32" href="../../assets/favicon-32.png" />
     <link rel="apple-touch-icon" href="../../assets/apple-touch-icon.png" />
     <style>
+      .me-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        font-size: 0.88rem;
+        color: var(--text-muted);
+        margin-bottom: 16px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--border);
+      }
+      .me-bar strong {
+        color: var(--text);
+      }
+      .me-bar .link-btn {
+        background: none;
+        border: none;
+        color: var(--accent);
+        font: inherit;
+        cursor: pointer;
+        padding: 0;
+        text-decoration: underline;
+      }
       .call-stage {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 14px;
-        padding: 28px 12px 24px;
+        gap: 12px;
+        padding: 22px 12px 18px;
       }
       .orb {
-        width: 112px;
-        height: 112px;
+        width: 96px;
+        height: 96px;
         border-radius: 50%;
         background: var(--surface-2);
         border: 1px solid var(--border);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 2.6rem;
+        font-size: 2.2rem;
         position: relative;
-        transition: background 0.2s, border-color 0.2s;
       }
       .orb.live {
         background: color-mix(in srgb, var(--accent) 14%, var(--surface-2));
         border-color: var(--accent);
-      }
-      /* 對方說話時的音量光暈 */
-      .orb .halo {
-        position: absolute;
-        inset: -6px;
-        border-radius: 50%;
-        border: 2px solid var(--accent);
-        opacity: 0;
-        transform: scale(1);
-        pointer-events: none;
       }
       .orb.waiting::after {
         content: "";
@@ -63,7 +75,7 @@
       }
       .call-timer {
         font-family: var(--mono);
-        font-size: 1.5rem;
+        font-size: 1.4rem;
         letter-spacing: 0.04em;
       }
       .call-hint {
@@ -75,10 +87,10 @@
       }
       .room-code {
         font-family: var(--mono);
-        font-size: 1.6rem;
+        font-size: 1.5rem;
         font-weight: 700;
         letter-spacing: 0.18em;
-        padding: 6px 4px;
+        padding: 4px 2px;
       }
       .share-row {
         display: flex;
@@ -91,9 +103,51 @@
       .share-row .btn {
         white-space: nowrap;
       }
+      /* 參與者清單 */
+      .roster {
+        list-style: none;
+        margin: 0 0 4px;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .roster li {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 2px;
+        border-bottom: 1px solid var(--border);
+      }
+      .roster li:last-child {
+        border-bottom: none;
+      }
+      .roster .who {
+        flex: 1;
+        min-width: 0;
+        font-size: 0.92rem;
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .roster .tag {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 1px 8px;
+        flex: none;
+      }
+      .roster .tag.warn {
+        color: #e5484d;
+        border-color: #e5484d;
+      }
       .meter {
-        width: 100%;
-        max-width: 280px;
+        width: 92px;
+        flex: none;
         height: 6px;
         border-radius: 3px;
         background: var(--surface-2);
@@ -107,17 +161,6 @@
         background: var(--accent);
         transition: width 0.08s linear;
       }
-      .meter-row {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-size: 0.8rem;
-        color: var(--text-muted);
-      }
-      .meter-row span {
-        width: 3.2em;
-        flex: none;
-      }
       button.btn.danger {
         background: #e5484d;
         border-color: #e5484d;
@@ -130,10 +173,6 @@
       button.btn.on {
         border-color: var(--accent);
         color: var(--accent);
-      }
-      button.btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
       }
       .hidden {
         display: none !important;
@@ -187,98 +226,110 @@
     <main class="container tool-page">
       <a class="back" href="../../">← 返回工具列表</a>
       <h1>📞 語音通話</h1>
-      <p class="subtitle">兩人瀏覽器直接通話,開房間把連結傳給對方就能講話。語音 P2P 直連,不經過本站伺服器。</p>
+      <p class="subtitle">多人瀏覽器直接通話,開房間把連結傳給大家就能講話。語音 P2P 直連,不經過本站伺服器。</p>
 
       <div class="panel">
-        <div class="call-stage">
-          <div class="orb" id="orb"><span id="orbIcon">🎙️</span><i class="halo" id="halo"></i></div>
-          <div class="call-state" id="callState">尚未連線</div>
-          <div class="call-timer hidden" id="timer">00:00</div>
-          <div class="call-hint" id="hint">按「建立房間」開一通新的通話,或貼上對方給你的連結加入。</div>
-        </div>
-
-        <!-- 閒置:建立或加入 -->
-        <div id="idleView">
-          <div class="toolbar" style="justify-content: center">
-            <button class="btn primary" id="createBtn">建立房間</button>
-            <button class="btn" id="joinBtn">加入通話</button>
-          </div>
-          <div id="joinForm" class="hidden">
-            <label class="field-label" for="joinCode">對方的房號或邀請連結</label>
-            <div class="share-row">
-              <input class="text-input" id="joinCode" placeholder="例如 7KQ2M8D4 或完整連結" autocomplete="off" spellcheck="false" />
-              <button class="btn primary" id="joinGo">撥出</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- 房主:等待對方加入 -->
-        <div id="hostView" class="hidden">
-          <label class="field-label">房號</label>
-          <div class="room-code" id="roomCode">--------</div>
-          <label class="field-label" for="shareLink" style="margin-top: 10px">邀請連結(傳給對方)</label>
+        <!-- 第一次造訪:設定名稱 -->
+        <div id="nameSetup" class="hidden">
+          <label class="field-label" for="nameInput">先設定你的名稱</label>
           <div class="share-row">
-            <input class="text-input" id="shareLink" readonly />
-            <button class="btn" id="copyBtn">複製</button>
+            <input class="text-input" id="nameInput" maxlength="20" placeholder="例如 Noah" autocomplete="nickname" />
+            <button class="btn primary" id="nameSave">確定</button>
           </div>
-          <div class="toolbar" style="justify-content: center">
-            <button class="btn danger" id="cancelBtn">取消房間</button>
-          </div>
+          <p class="adv-note" style="margin-top: 8px">通話中其他人會看到這個名稱。只存在這台瀏覽器,不會上傳。</p>
         </div>
 
-        <!-- 通話中 -->
-        <div id="liveView" class="hidden">
-          <div class="meter-row" style="justify-content: center; margin-bottom: 8px">
-            <span>我</span>
-            <div class="meter"><i id="meterLocal"></i></div>
+        <!-- 已有名稱 -->
+        <div id="mainView" class="hidden">
+          <div class="me-bar">
+            <span>你的名稱:<strong id="myName">—</strong></span>
+            <button type="button" class="link-btn" id="renameBtn">更改</button>
           </div>
-          <div class="meter-row" style="justify-content: center">
-            <span>對方</span>
-            <div class="meter"><i id="meterRemote"></i></div>
+
+          <div class="call-stage">
+            <div class="orb" id="orb"><span id="orbIcon">🎙️</span></div>
+            <div class="call-state" id="callState">尚未連線</div>
+            <div class="call-timer hidden" id="timer">00:00</div>
+            <div class="call-hint" id="hint">按「建立房間」開一通新的通話,或貼上別人給你的連結加入。</div>
           </div>
-          <div class="toolbar" style="justify-content: center">
-            <button class="btn" id="muteBtn">🎙️ 靜音</button>
-            <button class="btn danger" id="hangupBtn">掛斷</button>
+
+          <!-- 閒置 -->
+          <div id="idleView">
+            <div class="toolbar" style="justify-content: center">
+              <button class="btn primary" id="createBtn">建立房間</button>
+              <button class="btn" id="joinBtn">加入通話</button>
+            </div>
+            <div id="joinForm" class="hidden">
+              <label class="field-label" for="joinCode">房號或邀請連結</label>
+              <div class="share-row">
+                <input class="text-input" id="joinCode" placeholder="例如 7KQ2M8D4 或完整連結" autocomplete="off" spellcheck="false" />
+                <button class="btn primary" id="joinGo">加入</button>
+              </div>
+            </div>
           </div>
+
+          <!-- 房間(等待中或通話中都看得到) -->
+          <div id="roomView" class="hidden">
+            <label class="field-label">房號</label>
+            <div class="room-code" id="roomCode">--------</div>
+            <label class="field-label" for="shareLink" style="margin-top: 10px">邀請連結(傳給要加入的人)</label>
+            <div class="share-row">
+              <input class="text-input" id="shareLink" readonly />
+              <button class="btn" id="copyBtn">複製</button>
+            </div>
+
+            <label class="field-label" style="margin-top: 16px">
+              通話中的人(<span id="peerCount">1</span>)
+            </label>
+            <ul class="roster" id="roster"></ul>
+
+            <div class="toolbar" style="justify-content: center">
+              <button class="btn" id="muteBtn">🎙️ 靜音</button>
+              <button class="btn danger" id="leaveBtn">離開通話</button>
+            </div>
+          </div>
+
+          <div class="status" id="statusBox"></div>
+
+          <details class="advanced">
+            <summary>進階:自訂 TURN 伺服器</summary>
+            <p class="adv-note">
+              若有人在嚴格的 NAT／公司網路後面,P2P 可能無法直連,這時需要一台 TURN 中繼。
+              填入後會存在這台瀏覽器,不會上傳。
+            </p>
+            <label class="field-label" for="turnUrl">TURN URL</label>
+            <input class="text-input" id="turnUrl" placeholder="turn:your-host:3478" autocomplete="off" spellcheck="false" />
+            <div class="two-col" style="margin-top: 10px">
+              <div>
+                <label class="field-label" for="turnUser">帳號</label>
+                <input class="text-input" id="turnUser" autocomplete="off" spellcheck="false" />
+              </div>
+              <div>
+                <label class="field-label" for="turnPass">密碼</label>
+                <input class="text-input" id="turnPass" type="password" autocomplete="off" />
+              </div>
+            </div>
+            <div class="toolbar">
+              <button class="btn" id="turnSave">儲存</button>
+              <button class="btn" id="turnClear">清除</button>
+              <span class="adv-note" id="turnState"></span>
+            </div>
+          </details>
         </div>
-
-        <div class="status" id="statusBox"></div>
-
-        <details class="advanced">
-          <summary>進階:自訂 TURN 伺服器</summary>
-          <p class="adv-note">
-            雙方若都在嚴格的 NAT／公司網路後面,P2P 可能無法直連,這時需要一台 TURN 中繼。
-            填入後會存在這台瀏覽器,不會上傳。
-          </p>
-          <label class="field-label" for="turnUrl">TURN URL</label>
-          <input class="text-input" id="turnUrl" placeholder="turn:your-host:3478" autocomplete="off" spellcheck="false" />
-          <div class="two-col" style="margin-top: 10px">
-            <div>
-              <label class="field-label" for="turnUser">帳號</label>
-              <input class="text-input" id="turnUser" autocomplete="off" spellcheck="false" />
-            </div>
-            <div>
-              <label class="field-label" for="turnPass">密碼</label>
-              <input class="text-input" id="turnPass" type="password" autocomplete="off" />
-            </div>
-          </div>
-          <div class="toolbar">
-            <button class="btn" id="turnSave">儲存</button>
-            <button class="btn" id="turnClear">清除</button>
-            <span class="adv-note" id="turnState"></span>
-          </div>
-        </details>
       </div>
 
       <p class="note">
-        <strong>怎麼用:</strong>一方按「建立房間」並允許麥克風,把邀請連結傳給對方(LINE、訊息都行);對方開啟連結、允許麥克風後就會接通。<br />
-        <strong>隱私:</strong>通話採 WebRTC P2P 加密直連,語音內容不會經過本站。配對(交換連線資訊)借用 PeerJS 的公開訊令伺服器,只傳遞連線位址,不含語音。預設只用 STUN;若雙方網路無法直連,可在「進階」自備 TURN 中繼(中繼端同樣無法解密語音)。<br />
-        <strong>限制:</strong>目前支援一對一;需要 HTTPS(本機直接開檔
+        <strong>怎麼用:</strong>第一次造訪先設定名稱。一個人按「建立房間」並允許麥克風,把邀請連結傳給其他人;
+        每個人開啟連結、允許麥克風後就會加進同一通通話,人數不限(建議 5 人以內)。<br />
+        <strong>隱私:</strong>採 WebRTC P2P 加密直連,語音內容不會經過本站。配對(交換連線資訊)借用 PeerJS 的公開訊令伺服器,只傳遞連線位址與名稱,不含語音。
+        預設只用 STUN;若有人無法直連,可在「進階」自備 TURN 中繼(中繼端同樣無法解密語音)。<br />
+        <strong>限制:</strong>採 mesh 連線(每兩人一條),人越多上傳頻寬與 CPU 負擔越高,實務上 4～5 人以內最穩。
+        開房間的人離開後房間就關閉,其他人需要重開一間。需要 HTTPS(本機直接開檔
         <code>file://</code> 取不到麥克風,請用 <code>localhost</code> 靜態伺服器測試)。
       </p>
     </main>
 
-    <audio id="remoteAudio" autoplay playsinline></audio>
+    <div id="audioSink" hidden></div>
 
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script>
@@ -289,24 +340,32 @@
         var statusBox = $("statusBox"),
           orb = $("orb"),
           orbIcon = $("orbIcon"),
-          halo = $("halo"),
           callState = $("callState"),
           hint = $("hint"),
           timerEl = $("timer"),
-          remoteAudio = $("remoteAudio");
+          rosterEl = $("roster"),
+          audioSink = $("audioSink");
 
         var PREFIX = "wt-voice-";
         var ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // 去掉易混淆的 I/L/O/0/1
+        var NAME_KEY = "wt-voice-name";
+        var TURN_KEY = "wt-voice-turn";
 
-        var peer = null, // PeerJS 連線
-          mediaCall = null, // 目前這通 call
-          localStream = null,
-          audioCtx = null,
-          meters = [], // 音量分析器的停止函式
-          timerId = null,
-          startedAt = 0,
-          isHost = false,
-          myCode = "";
+        var myName = "";
+        var peer = null; // 自己的 PeerJS
+        var isHost = false;
+        var roomCode = "";
+        var hostConn = null; // 來賓 → 房主的資料通道
+        var guestConns = {}; // 房主 → 各來賓的資料通道
+        var roster = []; // [{id, name}],依加入順序,房主是第一個
+        var calls = {}; // peerId → MediaConnection
+        var meterStops = {}; // peerId → 停止音量分析
+        var rows = {}; // peerId → { bar, tag }
+        var localStream = null;
+        var audioCtx = null;
+        var timerId = null;
+        var startedAt = 0;
+        var muted = false;
 
         function setStatus(msg, kind) {
           statusBox.textContent = msg || "";
@@ -317,75 +376,62 @@
           $(id).classList.toggle("hidden", !on);
         }
 
-        function setScene(scene) {
-          show("idleView", scene === "idle");
-          show("hostView", scene === "host");
-          show("liveView", scene === "live");
-          show("timer", scene === "live");
-          orb.classList.toggle("live", scene === "live");
-          orb.classList.toggle("waiting", scene === "host" || scene === "calling");
-        }
-
-        // ---- 音量視覺化 ----
-        function attachMeter(stream, barEl, isRemote) {
+        // ---------- 名稱 ----------
+        function loadName() {
           try {
-            audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-            if (audioCtx.state === "suspended") audioCtx.resume();
-            var src = audioCtx.createMediaStreamSource(stream);
-            var analyser = audioCtx.createAnalyser();
-            analyser.fftSize = 512;
-            src.connect(analyser);
-            var data = new Uint8Array(analyser.frequencyBinCount);
-            var alive = true;
-            (function loop() {
-              if (!alive) return;
-              analyser.getByteTimeDomainData(data);
-              var peak = 0;
-              for (var i = 0; i < data.length; i++) {
-                var v = Math.abs(data[i] - 128) / 128;
-                if (v > peak) peak = v;
-              }
-              var pct = Math.min(100, Math.round(peak * 260));
-              barEl.style.width = pct + "%";
-              if (isRemote) {
-                halo.style.opacity = Math.min(0.9, peak * 3).toFixed(2);
-                halo.style.transform = "scale(" + (1 + Math.min(0.12, peak * 0.4)).toFixed(3) + ")";
-              }
-              requestAnimationFrame(loop);
-            })();
-            meters.push(function () {
-              alive = false;
-              try {
-                src.disconnect();
-              } catch (e) {}
-              barEl.style.width = "0%";
-            });
+            return (localStorage.getItem(NAME_KEY) || "").trim();
           } catch (e) {
-            /* 音量條只是裝飾,失敗不影響通話 */
+            return "";
           }
         }
 
-        // ---- 計時 ----
-        function startTimer() {
-          startedAt = Date.now();
-          timerId = setInterval(function () {
-            var s = Math.floor((Date.now() - startedAt) / 1000);
-            var m = Math.floor(s / 60);
-            timerEl.textContent =
-              ("0" + m).slice(-2) + ":" + ("0" + (s % 60)).slice(-2);
-          }, 500);
+        function saveName(n) {
+          try {
+            localStorage.setItem(NAME_KEY, n);
+          } catch (e) {
+            /* 無痕模式存不了就算了,這次仍可用 */
+          }
         }
 
-        function randomCode(n) {
-          var out = "";
-          var buf = new Uint32Array(n);
-          crypto.getRandomValues(buf);
-          for (var i = 0; i < n; i++) out += ALPHABET[buf[i] % ALPHABET.length];
-          return out;
+        function askName(prefill) {
+          show("nameSetup", true);
+          show("mainView", false);
+          $("nameInput").value = prefill || "";
+          $("nameInput").focus();
         }
 
-        var TURN_KEY = "wt-voice-turn";
+        function applyName(n) {
+          myName = n;
+          $("myName").textContent = n;
+          show("nameSetup", false);
+          show("mainView", true);
+        }
 
+        $("nameSave").addEventListener("click", function () {
+          var n = $("nameInput").value.trim().slice(0, 20);
+          if (!n) {
+            setStatus("請先輸入名稱", "error");
+            $("nameInput").focus();
+            return;
+          }
+          saveName(n);
+          applyName(n);
+          setStatus("");
+          initFromHash();
+        });
+        $("nameInput").addEventListener("keydown", function (e) {
+          if (e.key === "Enter") $("nameSave").click();
+        });
+
+        $("renameBtn").addEventListener("click", function () {
+          if (peer) {
+            setStatus("通話中不能改名稱,離開後再改", "error");
+            return;
+          }
+          askName(myName);
+        });
+
+        // ---------- TURN ----------
         function savedTurn() {
           try {
             var raw = localStorage.getItem(TURN_KEY);
@@ -405,6 +451,7 @@
           return { iceServers: servers };
         }
 
+        // ---------- 麥克風 ----------
         function isSecure() {
           return (
             window.isSecureContext ||
@@ -427,11 +474,7 @@
           if (!micSupported()) return Promise.reject(new Error("這個瀏覽器不支援麥克風存取"));
           return navigator.mediaDevices
             .getUserMedia({
-              audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true,
-              },
+              audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
               video: false,
             })
             .then(function (s) {
@@ -446,7 +489,122 @@
             });
         }
 
-        // 建立 PeerJS 連線;id 省略時由伺服器配發
+        // ---------- 音量視覺化 ----------
+        function attachMeter(peerId, stream, barEl) {
+          try {
+            audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === "suspended") audioCtx.resume();
+            var src = audioCtx.createMediaStreamSource(stream);
+            var analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 512;
+            src.connect(analyser);
+            var data = new Uint8Array(analyser.frequencyBinCount);
+            var alive = true;
+            (function loop() {
+              if (!alive) return;
+              analyser.getByteTimeDomainData(data);
+              var pk = 0;
+              for (var i = 0; i < data.length; i++) {
+                var v = Math.abs(data[i] - 128) / 128;
+                if (v > pk) pk = v;
+              }
+              barEl.style.width = Math.min(100, Math.round(pk * 260)) + "%";
+              requestAnimationFrame(loop);
+            })();
+            meterStops[peerId] = function () {
+              alive = false;
+              try {
+                src.disconnect();
+              } catch (e) {}
+            };
+          } catch (e) {
+            /* 音量條只是輔助,失敗不影響通話 */
+          }
+        }
+
+        // ---------- 參與者清單 ----------
+        function nameOf(id) {
+          for (var i = 0; i < roster.length; i++) if (roster[i].id === id) return roster[i].name;
+          return "(未知)";
+        }
+
+        function renderRoster() {
+          rosterEl.innerHTML = "";
+          rows = {};
+          roster.forEach(function (p) {
+            var li = document.createElement("li");
+
+            var who = document.createElement("span");
+            who.className = "who";
+            who.textContent = p.name;
+            li.appendChild(who);
+
+            var tag = document.createElement("span");
+            tag.className = "tag";
+            if (p.id === myId()) tag.textContent = "你";
+            else if (p.id === hostId()) tag.textContent = "房主";
+            else tag.textContent = calls[p.id] ? "已連線" : "連線中";
+            li.appendChild(tag);
+
+            var meter = document.createElement("div");
+            meter.className = "meter";
+            var bar = document.createElement("i");
+            meter.appendChild(bar);
+            li.appendChild(meter);
+
+            rosterEl.appendChild(li);
+            rows[p.id] = { bar: bar, tag: tag };
+
+            // 已經有串流的,把音量條接回去
+            if (p.id === myId() && localStream) attachMeter(p.id, localStream, bar);
+            else if (calls[p.id] && calls[p.id].__stream) attachMeter(p.id, calls[p.id].__stream, bar);
+          });
+          $("peerCount").textContent = roster.length;
+        }
+
+        function myId() {
+          return peer ? peer.id : null;
+        }
+
+        function hostId() {
+          return PREFIX + roomCode;
+        }
+
+        function setTag(peerId, text, warn) {
+          var r = rows[peerId];
+          if (!r) return;
+          r.tag.textContent = text;
+          r.tag.classList.toggle("warn", !!warn);
+        }
+
+        // ---------- 計時 ----------
+        function startTimer() {
+          if (timerId) return;
+          startedAt = Date.now();
+          show("timer", true);
+          timerId = setInterval(function () {
+            var s = Math.floor((Date.now() - startedAt) / 1000);
+            timerEl.textContent =
+              ("0" + Math.floor(s / 60)).slice(-2) + ":" + ("0" + (s % 60)).slice(-2);
+          }, 500);
+        }
+
+        function stopTimer() {
+          if (timerId) clearInterval(timerId);
+          timerId = null;
+          timerEl.textContent = "00:00";
+          show("timer", false);
+        }
+
+        function randomCode(n) {
+          var out = "";
+          var buf = new Uint32Array(n);
+          crypto.getRandomValues(buf);
+          for (var i = 0; i < n; i++) out += ALPHABET[buf[i] % ALPHABET.length];
+          return out;
+        }
+
+        // ---------- PeerJS ----------
         function makePeer(id) {
           return new Promise(function (resolve, reject) {
             if (typeof Peer === "undefined") {
@@ -460,207 +618,198 @@
               resolve(p);
             });
             p.on("error", function (err) {
-              var msg = String((err && err.type) || err);
-              if (msg === "unavailable-id") msg = "房號已被佔用,請重新建立房間";
-              else if (msg === "peer-unavailable") msg = "找不到這個房號,可能對方已關閉或房號打錯";
-              else if (msg === "network" || msg === "server-error" || msg === "socket-error")
+              var t = String((err && err.type) || err);
+              var msg;
+              if (t === "unavailable-id") msg = "房號已被佔用,請重新建立房間";
+              else if (t === "peer-unavailable") msg = "找不到這個房號,可能房主已離開或房號打錯";
+              else if (t === "network" || t === "server-error" || t === "socket-error")
                 msg = "無法連上訊令伺服器,請檢查網路後重試";
-              else if (msg === "browser-incompatible") msg = "這個瀏覽器不支援 WebRTC 通話";
-              else msg = "連線錯誤:" + msg;
+              else if (t === "browser-incompatible") msg = "這個瀏覽器不支援 WebRTC 通話";
+              else msg = "連線錯誤:" + t;
+
               if (!settled) {
                 settled = true;
                 reject(new Error(msg));
               } else {
                 setStatus("✗ " + msg, "error");
-                if (!mediaCall) resetToIdle();
+                // peer-unavailable 只是某個對象不在,不必整間拆掉
+                if (t !== "peer-unavailable") leaveCall(null);
               }
             });
           });
         }
 
-        // 沒收到對方的候選位址 = 配對訊息沒送達;收到了才是網路穿透問題
-        function failureReason(pc) {
-          var gotRemote = false;
-          try {
-            gotRemote = !!(pc && pc.remoteDescription && pc.remoteDescription.sdp &&
-              pc.remoteDescription.sdp.indexOf("a=candidate") !== -1);
-          } catch (e) {}
-          return gotRemote
-            ? "✗ 連線失敗 — 雙方網路無法直連。若在公司或嚴格的網路下,可在「進階」填自己的 TURN 伺服器後重試"
-            : "✗ 連線失敗 — 配對訊息沒送達(訊令伺服器不穩或對方已離開),請重試一次";
-        }
-
-        var connectGuard = null; // 連不上的逾時保險
-        var connected = false; // ICE 真的通了才算
-
+        // 把一條媒體連線接起來(不論是我撥的還是別人撥進來的)
         function wireCall(call) {
-          mediaCall = call;
-          connected = false;
-          var pendingStream = null;
+          var id = call.peer;
+          calls[id] = call;
 
-          callState.textContent = "連線中";
-          setStatus("正在建立連線…");
+          call.on("stream", function (stream) {
+            call.__stream = stream;
 
-          // PeerJS 的 stream 事件在 ICE 談完之前就會觸發,所以不能用它當「已接通」
-          call.on("stream", function (remoteStream) {
-            pendingStream = remoteStream;
-            remoteAudio.srcObject = remoteStream;
-            remoteAudio.play().catch(function () {
+            // 每個人一個 audio 元素
+            var el = document.createElement("audio");
+            el.autoplay = true;
+            el.playsInline = true;
+            el.srcObject = stream;
+            el.setAttribute("data-peer", id);
+            audioSink.appendChild(el);
+            el.play().catch(function () {
               setStatus("瀏覽器擋下自動播放,請點一下頁面任一處", "error");
             });
-            if (connected) goLive(remoteStream);
+
+            setTag(id, "已連線");
+            if (rows[id]) attachMeter(id, stream, rows[id].bar);
+            startTimer();
+            orb.classList.remove("waiting");
+            orb.classList.add("live");
+            orbIcon.textContent = "🔊";
+            callState.textContent = "通話中";
+            hint.textContent = "講話吧 — 每個人旁邊的音量條可以確認聲音有沒有進來。";
+            setStatus("");
           });
+
           call.on("close", function () {
-            endCall("對方已掛斷", true);
+            dropPeer(id);
           });
-          call.on("error", function (err) {
-            endCall("通話中斷:" + ((err && err.message) || err), true);
+          call.on("error", function () {
+            dropPeer(id);
           });
 
           var pc = call.peerConnection;
           if (pc) {
-            var onState = function () {
-              var st = pc.connectionState || pc.iceConnectionState;
-              if ((st === "connected" || st === "completed") && !connected) {
-                connected = true;
-                clearTimeout(connectGuard);
-                connectGuard = null;
-                if (pendingStream) goLive(pendingStream);
-              } else if (st === "failed") {
-                endCall(failureReason(pc), true);
-              } else if (st === "disconnected" && connected) {
-                setStatus("連線不穩,嘗試恢復中…", "error");
+            pc.addEventListener("connectionstatechange", function () {
+              if (pc.connectionState === "failed") {
+                setTag(id, "連不上", true);
+                setStatus("✗ 與「" + nameOf(id) + "」無法直連。若在嚴格的網路下,可在「進階」填 TURN 伺服器", "error");
+                dropPeer(id);
               }
-            };
-            pc.addEventListener("connectionstatechange", onState);
-            pc.addEventListener("iceconnectionstatechange", onState);
-            onState();
-          }
-
-          clearTimeout(connectGuard);
-          connectGuard = setTimeout(function () {
-            if (!connected) endCall(failureReason(pc), true);
-          }, 25000);
-        }
-
-        function goLive(remoteStream) {
-          setScene("live");
-          orbIcon.textContent = "🔊";
-          callState.textContent = "通話中";
-          hint.textContent = "講話吧 — 下面的音量條可以確認兩邊的聲音有進來。";
-          setStatus("✓ 已接通", "ok");
-          startTimer();
-          attachMeter(localStream, $("meterLocal"), false);
-          attachMeter(remoteStream, $("meterRemote"), true);
-        }
-
-        function stopMeters() {
-          meters.forEach(function (stop) {
-            stop();
-          });
-          meters = [];
-          halo.style.opacity = 0;
-        }
-
-        function releaseMic() {
-          if (localStream) {
-            localStream.getTracks().forEach(function (t) {
-              t.stop();
             });
-            localStream = null;
           }
         }
 
-        function resetToIdle() {
-          setScene("idle");
-          orbIcon.textContent = "🎙️";
-          callState.textContent = "尚未連線";
-          hint.textContent = "按「建立房間」開一通新的通話,或貼上對方給你的連結加入。";
-          timerEl.textContent = "00:00";
-          $("muteBtn").classList.remove("on");
-          $("muteBtn").textContent = "🎙️ 靜音";
-          $("joinForm").classList.add("hidden");
+        function startCall(id) {
+          if (calls[id] || !localStream) return;
+          var call = peer.call(id, localStream, { metadata: { name: myName } });
+          if (call) wireCall(call);
         }
 
-        function showWaitingRoom() {
-          setScene("host");
-          orbIcon.textContent = "⏳";
-          callState.textContent = "等待對方加入";
-          hint.textContent = "把下面的邀請連結傳給對方,對方開啟並允許麥克風後就會接通。這個頁面請保持開著。";
-        }
-
-        // keepRoom:房主在通話結束/失敗後留在同一個房號,對方可以直接用原連結重試
-        function endCall(reason, keepRoom) {
-          connected = false;
-          if (connectGuard) {
-            clearTimeout(connectGuard);
-            connectGuard = null;
+        // 某個人離開了:收掉他的連線、音訊與音量條
+        function dropPeer(id) {
+          if (!peer) return; // 已經整個離開了,殘留的 close 事件不用再處理
+          if (meterStops[id]) {
+            meterStops[id]();
+            delete meterStops[id];
           }
-          if (timerId) {
-            clearInterval(timerId);
-            timerId = null;
-          }
-          stopMeters();
-          if (mediaCall) {
+          // 一定要先從表中移除:close() 會同步再觸發一次 close 事件,
+          // 若此時還查得到這筆就會無限遞迴(RangeError)
+          var call = calls[id];
+          if (call) {
+            delete calls[id];
             try {
-              mediaCall.close();
+              call.close();
             } catch (e) {}
-            mediaCall = null;
           }
-          remoteAudio.srcObject = null;
+          var el = audioSink.querySelector('audio[data-peer="' + id + '"]');
+          if (el) {
+            el.srcObject = null;
+            el.remove();
+          }
+          if (isHost) {
+            var gc = guestConns[id];
+            if (gc) {
+              delete guestConns[id];
+              try {
+                gc.close();
+              } catch (e) {}
+            }
+            roster = roster.filter(function (p) {
+              return p.id !== id;
+            });
+            broadcastRoster();
+            renderRoster();
+          } else {
+            setTag(id, "已離開", true);
+          }
 
-          if (keepRoom && isHost && peer && !peer.destroyed) {
-            showWaitingRoom(); // 麥克風與 peer 都留著,等對方再撥一次
-            timerEl.textContent = "00:00";
-            $("muteBtn").classList.remove("on");
-            $("muteBtn").textContent = "🎙️ 靜音";
-            if (reason) setStatus(reason, "error");
-            return;
+          // 只剩自己 → 回到等待狀態
+          if (Object.keys(calls).length === 0) {
+            stopTimer();
+            orb.classList.remove("live");
+            orb.classList.add("waiting");
+            orbIcon.textContent = "⏳";
+            callState.textContent = isHost ? "等待其他人加入" : "等待重新連上";
           }
-
-          if (peer) {
-            try {
-              peer.destroy();
-            } catch (e) {}
-            peer = null;
-          }
-          isHost = false;
-          releaseMic();
-          resetToIdle();
-          if (reason) setStatus(reason);
         }
 
-        // ---- 建立房間 ----
+        // ---------- 房主:名冊同步 ----------
+        function broadcastRoster() {
+          var msg = { type: "roster", roster: roster };
+          Object.keys(guestConns).forEach(function (id) {
+            try {
+              if (guestConns[id].open) guestConns[id].send(msg);
+            } catch (e) {}
+          });
+        }
+
+        // 收到名冊:跟「排在我前面」的人建立連線(排我後面的人會主動打給我,避免雙向重複)
+        function onRoster(list) {
+          roster = list;
+          renderRoster();
+          var myIdx = -1;
+          for (var i = 0; i < roster.length; i++) if (roster[i].id === myId()) myIdx = i;
+          if (myIdx < 0) return;
+          for (var j = 0; j < myIdx; j++) startCall(roster[j].id);
+        }
+
+        // ---------- 建立房間 ----------
         $("createBtn").addEventListener("click", function () {
           setStatus("正在開啟麥克風…");
           orb.classList.add("waiting");
           getMic()
             .then(function () {
-              myCode = randomCode(8);
+              roomCode = randomCode(8);
               setStatus("正在建立房間…");
-              return makePeer(PREFIX + myCode);
+              return makePeer(PREFIX + roomCode);
             })
             .then(function (p) {
               peer = p;
-              var link = location.origin + location.pathname + "#r=" + myCode;
-              $("roomCode").textContent = myCode;
-              $("shareLink").value = link;
               isHost = true;
-              showWaitingRoom();
-              setStatus("");
+              roster = [{ id: p.id, name: myName }];
+
+              p.on("connection", function (conn) {
+                conn.on("data", function (msg) {
+                  if (!msg || msg.type !== "hello") return;
+                  guestConns[conn.peer] = conn;
+                  var nm = String(msg.name || "").trim().slice(0, 20) || "(無名)";
+                  // 同一個 peer 重複 hello 就更新名字,不重複加入
+                  var found = false;
+                  roster.forEach(function (x) {
+                    if (x.id === conn.peer) {
+                      x.name = nm;
+                      found = true;
+                    }
+                  });
+                  if (!found) roster.push({ id: conn.peer, name: nm });
+                  broadcastRoster();
+                  renderRoster();
+                  setStatus(nm + " 加入了");
+                });
+                conn.on("close", function () {
+                  dropPeer(conn.peer);
+                });
+              });
+
               p.on("call", function (call) {
-                // 一對一:已經在講了就婉拒,免得覆蓋掉目前的通話
-                if (mediaCall) {
-                  try {
-                    call.close();
-                  } catch (e) {}
-                  setStatus("有人嘗試加入,但目前只支援一對一通話", "error");
-                  return;
-                }
-                setStatus("對方加入中…");
                 call.answer(localStream);
                 wireCall(call);
               });
+
+              enterRoom();
+              orbIcon.textContent = "⏳";
+              callState.textContent = "等待其他人加入";
+              hint.textContent = "把邀請連結傳給其他人,他們開啟並允許麥克風後就會加進來。這個頁面請保持開著。";
+              setStatus("");
             })
             .catch(function (err) {
               orb.classList.remove("waiting");
@@ -669,7 +818,7 @@
             });
         });
 
-        // ---- 加入通話 ----
+        // ---------- 加入 ----------
         $("joinBtn").addEventListener("click", function () {
           $("joinForm").classList.toggle("hidden");
           if (!$("joinForm").classList.contains("hidden")) $("joinCode").focus();
@@ -687,20 +836,48 @@
             setStatus("請先輸入房號或邀請連結", "error");
             return;
           }
+          roomCode = code;
           setStatus("正在開啟麥克風…");
           orb.classList.add("waiting");
           orbIcon.textContent = "📞";
-          callState.textContent = "撥號中";
+          callState.textContent = "加入中";
           getMic()
             .then(function () {
-              setStatus("正在撥號…");
+              setStatus("正在加入房間…");
               return makePeer(null);
             })
             .then(function (p) {
               peer = p;
-              var call = p.call(PREFIX + code, localStream);
-              if (!call) throw new Error("撥號失敗,請確認房號是否正確");
-              wireCall(call);
+              isHost = false;
+
+              // 別人晚進來時會打給我
+              p.on("call", function (call) {
+                call.answer(localStream);
+                wireCall(call);
+              });
+
+              hostConn = p.connect(hostId(), { metadata: { name: myName } });
+              var joined = false;
+
+              hostConn.on("open", function () {
+                joined = true;
+                hostConn.send({ type: "hello", name: myName });
+              });
+              hostConn.on("data", function (msg) {
+                if (msg && msg.type === "roster") onRoster(msg.roster || []);
+              });
+              hostConn.on("close", function () {
+                leaveCall("房主已離開,通話結束");
+              });
+
+              enterRoom();
+              orbIcon.textContent = "⏳";
+              callState.textContent = "連線中";
+              hint.textContent = "正在跟房間裡的人建立連線…";
+
+              setTimeout(function () {
+                if (!joined) leaveCall("加入失敗 — 請確認房號正確,且房主的頁面還開著");
+              }, 20000);
             })
             .catch(function (err) {
               orb.classList.remove("waiting");
@@ -717,6 +894,15 @@
         $("joinCode").addEventListener("keydown", function (e) {
           if (e.key === "Enter") joinRoom(parseCode($("joinCode").value));
         });
+
+        // ---------- 房間畫面 ----------
+        function enterRoom() {
+          show("idleView", false);
+          show("roomView", true);
+          $("roomCode").textContent = roomCode;
+          $("shareLink").value = location.origin + location.pathname + "#r=" + roomCode;
+          renderRoster();
+        }
 
         $("copyBtn").addEventListener("click", function () {
           var input = $("shareLink");
@@ -739,11 +925,73 @@
           }
         });
 
-        $("cancelBtn").addEventListener("click", function () {
-          endCall("已取消房間");
-        });
-        $("hangupBtn").addEventListener("click", function () {
-          endCall("已掛斷");
+        // ---------- 離開 ----------
+        function releaseMic() {
+          if (localStream) {
+            localStream.getTracks().forEach(function (t) {
+              t.stop();
+            });
+            localStream = null;
+          }
+        }
+
+        function leaveCall(reason) {
+          Object.keys(meterStops).forEach(function (id) {
+            meterStops[id]();
+          });
+          meterStops = {};
+          // 先把表清空,再關閉手上的參考:close() 的回呼會同步打回 dropPeer
+          var oldCalls = calls,
+            oldGuests = guestConns,
+            oldHostConn = hostConn;
+          calls = {};
+          guestConns = {};
+          hostConn = null;
+          Object.keys(oldCalls).forEach(function (id) {
+            try {
+              oldCalls[id].close();
+            } catch (e) {}
+          });
+          Object.keys(oldGuests).forEach(function (id) {
+            try {
+              oldGuests[id].close();
+            } catch (e) {}
+          });
+          if (oldHostConn) {
+            try {
+              oldHostConn.close();
+            } catch (e) {}
+          }
+          if (peer) {
+            try {
+              peer.destroy();
+            } catch (e) {}
+            peer = null;
+          }
+          audioSink.innerHTML = "";
+          roster = [];
+          rows = {};
+          rosterEl.innerHTML = "";
+          isHost = false;
+          roomCode = "";
+          muted = false;
+          releaseMic();
+          stopTimer();
+
+          show("roomView", false);
+          show("idleView", true);
+          $("joinForm").classList.add("hidden");
+          orb.classList.remove("live", "waiting");
+          orbIcon.textContent = "🎙️";
+          callState.textContent = "尚未連線";
+          hint.textContent = "按「建立房間」開一通新的通話,或貼上別人給你的連結加入。";
+          $("muteBtn").classList.remove("on");
+          $("muteBtn").textContent = "🎙️ 靜音";
+          if (reason) setStatus(reason);
+        }
+
+        $("leaveBtn").addEventListener("click", function () {
+          leaveCall("已離開通話");
         });
 
         $("muteBtn").addEventListener("click", function () {
@@ -751,13 +999,21 @@
           var track = localStream.getAudioTracks()[0];
           if (!track) return;
           track.enabled = !track.enabled;
-          var muted = !track.enabled;
+          muted = !track.enabled;
           this.classList.toggle("on", muted);
           this.textContent = muted ? "🔇 已靜音" : "🎙️ 靜音";
-          setStatus(muted ? "麥克風已靜音,對方聽不到你" : "");
+          setStatus(muted ? "麥克風已靜音,其他人聽不到你" : "");
         });
 
-        // ---- 進階 TURN 設定 ----
+        window.addEventListener("beforeunload", function () {
+          if (peer) {
+            try {
+              peer.destroy();
+            } catch (e) {}
+          }
+        });
+
+        // ---------- 進階 TURN ----------
         function renderTurnState() {
           var t = savedTurn();
           $("turnState").textContent = t && t.urls ? "已設定:" + t.urls : "未設定(只用 STUN)";
@@ -802,31 +1058,30 @@
           renderTurnState();
           setStatus("已清除 TURN 設定");
         });
-        renderTurnState();
 
-        window.addEventListener("beforeunload", function () {
-          if (peer) {
-            try {
-              peer.destroy();
-            } catch (e) {}
-          }
-        });
-
-        // 帶著 #r=XXXX 進來 → 預填房號、直接問要不要接通
+        // ---------- 啟動 ----------
         function initFromHash() {
           var code = parseCode(location.hash);
-          if (!code) return;
+          if (!code || peer) return;
           $("joinForm").classList.remove("hidden");
           $("joinCode").value = code;
-          hint.textContent = "你受邀加入房號 " + code + ",按「撥出」並允許麥克風即可接通。";
+          hint.textContent = "你受邀加入房號 " + code + ",按「加入」並允許麥克風即可進入。";
           $("createBtn").classList.add("hidden");
           $("joinBtn").classList.add("hidden");
         }
-        initFromHash();
-        // 貼上另一個邀請連結時只會換 hash、不會重新載入,要自己接手
-        window.addEventListener("hashchange", function () {
-          if (mediaCall || peer) return; // 通話中不打斷
+
+        renderTurnState();
+
+        var saved = loadName();
+        if (saved) {
+          applyName(saved);
           initFromHash();
+        } else {
+          askName("");
+        }
+
+        window.addEventListener("hashchange", function () {
+          if (!peer && myName) initFromHash();
         });
 
         if (!isSecure()) {
